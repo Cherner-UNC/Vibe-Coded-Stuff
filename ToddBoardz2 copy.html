@@ -1,0 +1,2669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ToddBoard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter, Playfair Display, JetBrains Mono, Kalam, Montserrat, Comic Neue -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400;1,700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Kalam:wght@400;700&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f3f4;
+      touch-action: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #dadce0;
+      border-radius: 9999px;
+    }
+
+    /* Sticky note realistic elevation */
+    .sticky-note-card {
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.08);
+      transition: box-shadow 0.15s ease;
+    }
+    .sticky-note-card:hover {
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18), 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Selection bounding box & handles */
+    .selection-box {
+      border: 1.5px solid #1a73e8;
+      pointer-events: none;
+    }
+    .resize-handle {
+      width: 12px;
+      height: 12px;
+      background: #ffffff;
+      border: 2px solid #1a73e8;
+      border-radius: 50%;
+      position: absolute;
+      pointer-events: auto;
+      z-index: 30;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+    .handle-top-left { top: -6px; left: -6px; cursor: nwse-resize; }
+    .handle-top-right { top: -6px; right: -6px; cursor: nesw-resize; }
+    .handle-bottom-left { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .handle-bottom-right { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
+    .rotate-handle {
+      width: 16px;
+      height: 16px;
+      background: #ffffff;
+      border: 2px solid #1a73e8;
+      border-radius: 50%;
+      position: absolute;
+      top: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      cursor: grab;
+      pointer-events: auto;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+    .rotate-line {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      width: 1.5px;
+      height: 14px;
+      background: #1a73e8;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    /* Tooltips */
+    [data-tooltip] {
+      position: relative;
+    }
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 115%;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #202124;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 100;
+      pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    .tooltip-bottom[data-tooltip]:hover::after {
+      left: 50%;
+      top: 120%;
+      transform: translateX(-50%);
+    }
+
+    .tool-btn.active {
+      background-color: #e8f0fe;
+      color: #1a73e8;
+    }
+    .tool-btn.active svg {
+      stroke: #1a73e8;
+    }
+
+    .bg-option.bg-active {
+      border-color: #2563eb;
+      background-color: rgba(239, 246, 255, 0.7);
+    }
+  </style>
+</head>
+<body class="text-gray-800 antialiased">
+
+  <!-- ==================== TOP BAR ==================== -->
+  <header class="fixed top-0 left-0 right-0 h-14 bg-white/95 backdrop-blur border-b border-gray-200 px-3 sm:px-5 flex items-center justify-between z-40 shadow-xs">
+
+    <!-- Left: Brand & Editable ToddBoard Title -->
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shrink-0">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="11" y="3" width="7" height="7" rx="1.5" fill="#FFF" />
+          <rect x="11" y="10" width="7" height="7" fill="#FDE68A" />
+          <path d="M11 17C11 19.7614 8.76142 22 6 22C4.34315 22 3 20.6569 3 19C3 17.3431 4.34315 16 6 16H11V17Z" fill="#FFF" />
+        </svg>
+      </div>
+      <input
+        id="jamTitleInput"
+        type="text"
+        value="Name this ToddBoard"
+        placeholder="Name this ToddBoard"
+        aria-label="ToddBoard Title"
+        class="text-sm sm:text-base font-semibold text-gray-800 bg-transparent hover:bg-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none rounded-lg px-2 py-0.5 truncate max-w-[150px] sm:max-w-[230px] transition"
+      />
+    </div>
+
+    <!-- Center: Multi-Slide Navigation & "Add Slide" Button -->
+    <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1 bg-gray-100/90 border border-gray-200/80 rounded-full px-2 py-1 shadow-2xs">
+        <button id="prevSlideBtn" type="button" class="p-1.5 rounded-full hover:bg-white hover:shadow-2xs disabled:opacity-35 disabled:pointer-events-none transition" title="Previous Slide">
+          <i data-lucide="chevron-left" class="w-4 h-4 text-gray-700"></i>
+        </button>
+
+        <button id="slideOverviewBtn" type="button" class="px-2.5 py-1 rounded-full hover:bg-white text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-1.5 transition" title="Manage Slides">
+          <span id="slideIndicator">Slide 1 / 1</span>
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-gray-500"></i>
+        </button>
+
+        <button id="nextSlideBtn" type="button" class="p-1.5 rounded-full hover:bg-white hover:shadow-2xs disabled:opacity-35 disabled:pointer-events-none transition" title="Next Slide">
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-700"></i>
+        </button>
+      </div>
+
+      <button id="addSlideBtn" type="button" class="px-3 py-1.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition shrink-0" title="Add a New Slide">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+        <span>Add Slide</span>
+      </button>
+    </div>
+
+    <!-- Right: History, Zoom, Background, Clear, Export -->
+    <div class="flex items-center gap-1 sm:gap-1.5">
+      <div class="hidden sm:flex items-center bg-gray-100 rounded-full p-0.5 border border-gray-200/70">
+        <button id="undoBtn" type="button" class="p-1.5 rounded-full hover:bg-white disabled:opacity-35 transition tooltip-bottom" data-tooltip="Undo (Ctrl+Z)">
+          <i data-lucide="undo-2" class="w-4 h-4 text-gray-700"></i>
+        </button>
+        <button id="redoBtn" type="button" class="p-1.5 rounded-full hover:bg-white disabled:opacity-35 transition tooltip-bottom" data-tooltip="Redo (Ctrl+Y)">
+          <i data-lucide="redo-2" class="w-4 h-4 text-gray-700"></i>
+        </button>
+      </div>
+
+      <!-- Zoom Controls -->
+      <div class="relative">
+        <button id="zoomMenuBtn" type="button" class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200/70 border border-gray-200/70 text-xs font-medium text-gray-700 transition">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-gray-500"></i>
+          <span id="zoomLabel">100%</span>
+        </button>
+        <div id="zoomPopover" class="hidden absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-200 p-1.5 z-50">
+          <button type="button" data-zoom="in" class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-xl">
+            <span>Zoom In</span><span class="text-gray-400">Ctrl +</span>
+          </button>
+          <button type="button" data-zoom="out" class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-xl">
+            <span>Zoom Out</span><span class="text-gray-400">Ctrl -</span>
+          </button>
+          <button type="button" data-zoom="reset" class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 rounded-xl">
+            <span>Fit / Reset</span><span class="text-gray-400">Ctrl 0</span>
+          </button>
+          <div class="my-1 border-t border-gray-100"></div>
+          <div class="px-3 py-1.5 text-[11px] text-gray-400">
+            Hold <kbd class="px-1 py-0.5 bg-gray-100 rounded text-gray-600">Space</kbd> + Drag to pan
+          </div>
+        </div>
+      </div>
+
+      <!-- Set Background Button (6 Light Patterns: Plain, Dots, Ruled, Graph, Isometric, TBZ) -->
+      <div class="relative">
+        <button id="bgMenuBtn" type="button" class="px-2.5 py-1.5 rounded-full bg-white hover:bg-gray-100 border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1.5 transition shadow-2xs">
+          <i data-lucide="grid" class="w-3.5 h-3.5 text-gray-600"></i>
+          <span class="hidden md:inline">Background</span>
+        </button>
+        <div id="bgPopover" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-200 p-3 z-50">
+          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5 px-1">Slide Pattern</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" data-bg="plain" class="bg-option bg-active group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:bg-gray-50">
+              <div class="w-full h-10 rounded-lg bg-white border border-gray-200 shadow-2xs"></div>
+              <span class="text-[11px] font-medium text-gray-700">Plain</span>
+            </button>
+            <button type="button" data-bg="dots" class="bg-option group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:bg-gray-50">
+              <div class="w-full h-10 rounded-lg bg-white border border-gray-200" style="background-image: radial-gradient(#9ca3af 1px, transparent 1px); background-size: 8px 8px;"></div>
+              <span class="text-[11px] font-medium text-gray-700">Dots</span>
+            </button>
+            <button type="button" data-bg="ruled" class="bg-option group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:bg-gray-50">
+              <div class="w-full h-10 rounded-lg bg-white border border-gray-200" style="background-image: linear-gradient(#cbd5e1 1px, transparent 1px); background-size: 100% 8px;"></div>
+              <span class="text-[11px] font-medium text-gray-700">Ruled</span>
+            </button>
+            <button type="button" data-bg="graph" class="bg-option group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:bg-gray-50">
+              <div class="w-full h-10 rounded-lg bg-white border border-gray-200" style="background-image: linear-gradient(#cbd5e1 1px, transparent 1px), linear-gradient(90deg, #cbd5e1 1px, transparent 1px); background-size: 8px 8px;"></div>
+              <span class="text-[11px] font-medium text-gray-700">Graph</span>
+            </button>
+            <button type="button" data-bg="isometric" class="bg-option group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:bg-gray-50">
+              <div class="w-full h-10 rounded-lg bg-white border border-gray-200" style="background-image: repeating-linear-gradient(60deg, #cbd5e1 0, #cbd5e1 1px, transparent 1px, transparent 8px), repeating-linear-gradient(-60deg, #cbd5e1 0, #cbd5e1 1px, transparent 1px, transparent 8px); background-size: 16px 28px;"></div>
+              <span class="text-[11px] font-medium text-gray-700">Isometric</span>
+            </button>
+            <button type="button" data-bg="tbz" class="bg-option group flex flex-col items-center gap-1 p-1.5 rounded-xl border-2 border-transparent hover:bg-gray-50">
+              <div class="w-full h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center overflow-hidden" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='20' viewBox='0 0 36 20'%3E%3Ctext x='18' y='13' text-anchor='middle' font-family='Kalam, cursive' font-style='italic' font-weight='700' font-size='10' fill='%239ca3af' opacity='0.75'%3ETBZ%3C/text%3E%3C/svg%3E&quot;); background-size: 36px 20px;"></div>
+              <span class="text-[11px] font-medium text-gray-700">TBZ</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clear Slide -->
+      <button id="clearFrameBtn" type="button" class="px-2.5 py-1.5 rounded-full bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1.5 transition shadow-2xs" title="Clear Current Slide">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        <span class="hidden lg:inline">Clear slide</span>
+      </button>
+
+      <!-- Export PNG -->
+      <button id="exportPngBtn" type="button" class="px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium flex items-center gap-1.5 shadow-sm transition" title="Save Slide as PNG">
+        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Export</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== SLIDE MANAGER DRAWER ==================== -->
+  <div id="slideOverviewBar" class="hidden fixed top-14 left-0 right-0 bg-gray-100/95 backdrop-blur-md border-b border-gray-200 px-6 py-4 z-35 shadow-lg">
+    <div class="max-w-5xl mx-auto">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">All Slides</span>
+          <button id="overviewAddSlideBtn" type="button" class="px-2.5 py-1 rounded-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1 transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Slide
+          </button>
+        </div>
+        <button id="closeOverviewBtn" type="button" class="p-1 rounded-full hover:bg-gray-200 text-gray-600" aria-label="Close Slide Manager">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div id="slideThumbnailsList" class="flex items-center gap-4 overflow-x-auto pb-2"></div>
+    </div>
+  </div>
+
+  <!-- ==================== LEFT FLOATING VERTICAL TOOLBAR ==================== -->
+  <aside id="leftToolbar" class="fixed left-3 sm:left-4 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur border border-gray-200/90 rounded-full py-2.5 px-1.5 flex flex-col items-center gap-1.5 shadow-xl z-30">
+
+    <!-- Pen Tool -->
+    <div class="relative">
+      <button type="button" data-tool="pen" class="tool-btn active w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition relative" data-tooltip="Pen (P)">
+        <i data-lucide="pen-tool" class="w-5 h-5 text-gray-700"></i>
+        <span id="activePenColorDot" class="w-2.5 h-2.5 rounded-full bg-gray-900 border border-white absolute bottom-1.5 right-1.5 shadow-2xs"></span>
+      </button>
+
+      <div id="penPopover" class="hidden absolute left-14 top-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-3.5 w-60 z-50">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Brush Type</div>
+        <div class="grid grid-cols-4 gap-1.5 mb-3">
+          <button type="button" data-pen-type="pen" class="pen-type-btn active flex flex-col items-center p-2 rounded-xl border border-blue-500 bg-blue-50 text-blue-600" title="Fine Pen">
+            <i data-lucide="pen" class="w-4 h-4"></i>
+            <span class="text-[10px] mt-1 font-medium">Pen</span>
+          </button>
+          <button type="button" data-pen-type="marker" class="pen-type-btn flex flex-col items-center p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700" title="Thick Marker">
+            <i data-lucide="highlighter" class="w-4 h-4"></i>
+            <span class="text-[10px] mt-1 font-medium">Marker</span>
+          </button>
+          <button type="button" data-pen-type="highlighter" class="pen-type-btn flex flex-col items-center p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700" title="Highlighter">
+            <i data-lucide="sun" class="w-4 h-4"></i>
+            <span class="text-[10px] mt-1 font-medium">Glow</span>
+          </button>
+          <button type="button" data-pen-type="brush" class="pen-type-btn flex flex-col items-center p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700" title="Watercolor Brush">
+            <i data-lucide="paintbrush" class="w-4 h-4"></i>
+            <span class="text-[10px] mt-1 font-medium">Brush</span>
+          </button>
+        </div>
+
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Stroke Size</div>
+        <div class="flex items-center justify-between gap-2 mb-3 bg-gray-50 p-1.5 rounded-xl">
+          <button type="button" data-stroke-size="3" class="stroke-size-btn active flex-1 h-7 rounded-lg bg-white shadow-2xs flex items-center justify-center">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-800"></span>
+          </button>
+          <button type="button" data-stroke-size="6" class="stroke-size-btn flex-1 h-7 rounded-lg hover:bg-white flex items-center justify-center">
+            <span class="w-2.5 h-2.5 rounded-full bg-gray-800"></span>
+          </button>
+          <button type="button" data-stroke-size="12" class="stroke-size-btn flex-1 h-7 rounded-lg hover:bg-white flex items-center justify-center">
+            <span class="w-3.5 h-3.5 rounded-full bg-gray-800"></span>
+          </button>
+          <button type="button" data-stroke-size="22" class="stroke-size-btn flex-1 h-7 rounded-lg hover:bg-white flex items-center justify-center">
+            <span class="w-5 h-5 rounded-full bg-gray-800"></span>
+          </button>
+        </div>
+
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Color</div>
+        <div class="flex items-center justify-between gap-1.5">
+          <button type="button" data-pen-color="#1f2937" class="pen-color-btn w-7 h-7 rounded-full bg-[#1f2937] ring-2 ring-offset-2 ring-blue-500"></button>
+          <button type="button" data-pen-color="#1a73e8" class="pen-color-btn w-7 h-7 rounded-full bg-[#1a73e8]"></button>
+          <button type="button" data-pen-color="#188038" class="pen-color-btn w-7 h-7 rounded-full bg-[#188038]"></button>
+          <button type="button" data-pen-color="#f9ab00" class="pen-color-btn w-7 h-7 rounded-full bg-[#f9ab00]"></button>
+          <button type="button" data-pen-color="#d93025" class="pen-color-btn w-7 h-7 rounded-full bg-[#d93025]"></button>
+          <button type="button" data-pen-color="#ffffff" class="pen-color-btn w-7 h-7 rounded-full bg-white border border-gray-300"></button>
+          <label class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 cursor-pointer flex items-center justify-center overflow-hidden shadow-2xs" title="Custom Color">
+            <input type="color" id="customPenColorInput" value="#8b5cf6" class="opacity-0 w-full h-full cursor-pointer" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Eraser Tool -->
+    <button type="button" data-tool="eraser" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition" data-tooltip="Eraser (E)">
+      <i data-lucide="eraser" class="w-5 h-5 text-gray-700"></i>
+    </button>
+
+    <!-- Select Tool -->
+    <button type="button" data-tool="select" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition" data-tooltip="Select (V)">
+      <i data-lucide="mouse-pointer-2" class="w-5 h-5 text-gray-700"></i>
+    </button>
+
+    <!-- Sticky Note Tool -->
+    <button type="button" data-tool="sticky" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition" data-tooltip="Sticky Note (S)">
+      <i data-lucide="sticky-note" class="w-5 h-5 text-gray-700"></i>
+    </button>
+
+    <!-- Add Image Tool -->
+    <button type="button" data-tool="image" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition" data-tooltip="Add Image (I)">
+      <i data-lucide="image" class="w-5 h-5 text-gray-700"></i>
+    </button>
+    <input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" class="hidden" />
+
+    <!-- Shapes Tool -->
+    <div class="relative">
+      <button type="button" data-tool="shape" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition" data-tooltip="Shapes (R)">
+        <i data-lucide="shapes" class="w-5 h-5 text-gray-700"></i>
+      </button>
+
+      <div id="shapePopover" class="hidden absolute left-14 top-0 bg-white rounded-2xl shadow-xl border border-gray-200 p-3.5 w-60 z-50">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Select Shape</div>
+        <div class="grid grid-cols-3 gap-1.5 mb-3">
+          <button type="button" data-shape-type="circle" class="shape-type-btn active p-2 rounded-xl border border-blue-500 bg-blue-50 text-blue-600 flex flex-col items-center gap-1">
+            <i data-lucide="circle" class="w-5 h-5"></i>
+            <span class="text-[10px]">Circle</span>
+          </button>
+          <button type="button" data-shape-type="square" class="shape-type-btn p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 flex flex-col items-center gap-1">
+            <i data-lucide="square" class="w-5 h-5"></i>
+            <span class="text-[10px]">Square</span>
+          </button>
+          <button type="button" data-shape-type="rounded" class="shape-type-btn p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 flex flex-col items-center gap-1">
+            <i data-lucide="rectangle-horizontal" class="w-5 h-5"></i>
+            <span class="text-[10px]">Rounded</span>
+          </button>
+          <button type="button" data-shape-type="triangle" class="shape-type-btn p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 flex flex-col items-center gap-1">
+            <i data-lucide="triangle" class="w-5 h-5"></i>
+            <span class="text-[10px]">Triangle</span>
+          </button>
+          <button type="button" data-shape-type="diamond" class="shape-type-btn p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 flex flex-col items-center gap-1">
+            <i data-lucide="diamond" class="w-5 h-5"></i>
+            <span class="text-[10px]">Diamond</span>
+          </button>
+          <button type="button" data-shape-type="arrow" class="shape-type-btn p-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 flex flex-col items-center gap-1">
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+            <span class="text-[10px]">Arrow</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+          <div>
+            <label class="text-[10px] font-semibold text-gray-500 block mb-1">Border</label>
+            <div class="flex items-center gap-1">
+              <button type="button" data-shape-stroke="#1f2937" class="shape-stroke-btn w-5 h-5 rounded-full bg-[#1f2937] ring-2 ring-offset-1 ring-blue-500"></button>
+              <button type="button" data-shape-stroke="#1a73e8" class="shape-stroke-btn w-5 h-5 rounded-full bg-[#1a73e8]"></button>
+              <button type="button" data-shape-stroke="#d93025" class="shape-stroke-btn w-5 h-5 rounded-full bg-[#d93025]"></button>
+              <button type="button" data-shape-stroke="#188038" class="shape-stroke-btn w-5 h-5 rounded-full bg-[#188038]"></button>
+            </div>
+          </div>
+          <div>
+            <label class="text-[10px] font-semibold text-gray-500 block mb-1">Fill</label>
+            <div class="flex items-center gap-1">
+              <button type="button" data-shape-fill="transparent" class="shape-fill-btn w-5 h-5 rounded-full bg-white border border-gray-300 ring-2 ring-offset-1 ring-blue-500 flex items-center justify-center text-[9px] text-red-500 font-bold">/</button>
+              <button type="button" data-shape-fill="#ffffff" class="shape-fill-btn w-5 h-5 rounded-full bg-white border border-gray-300"></button>
+              <button type="button" data-shape-fill="#fef08a" class="shape-fill-btn w-5 h-5 rounded-full bg-[#fef08a]"></button>
+              <button type="button" data-shape-fill="#bfdbfe" class="shape-fill-btn w-5 h-5 rounded-full bg-[#bfdbfe]"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Text Box Tool -->
+    <button type="button" data-tool="text" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition" data-tooltip="Text Box (T)">
+      <i data-lucide="type" class="w-5 h-5 text-gray-700"></i>
+    </button>
+
+    <div class="w-6 h-px bg-gray-200 my-0.5"></div>
+
+    <!-- Laser Pointer Tool -->
+    <button type="button" data-tool="laser" class="tool-btn w-10 h-10 rounded-full flex items-center justify-center hover:bg-red-50 transition" data-tooltip="Laser Pointer (L)">
+      <i data-lucide="sparkles" class="w-5 h-5 text-red-500"></i>
+    </button>
+  </aside>
+
+  <!-- ==================== CONTEXTUAL OBJECT TOOLBAR ==================== -->
+  <div id="objectContextBar" class="hidden fixed top-16 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur border border-gray-200 rounded-full px-3 py-1.5 shadow-lg z-35 flex items-center gap-1.5 max-w-[96vw] overflow-x-auto">
+    <div id="textFormatControls" class="hidden flex items-center gap-1.5 border-r border-gray-200 pr-2.5 mr-1 shrink-0">
+      <!-- 6 Fonts -->
+      <select id="objFontFamilySelect" class="text-xs font-medium bg-gray-100 hover:bg-gray-200/70 rounded-lg px-2 py-1 focus:outline-none cursor-pointer" title="Font Family">
+        <option value="sans">Inter</option>
+        <option value="serif">Playfair Display</option>
+        <option value="mono">JetBrains Mono</option>
+        <option value="handwriting">Kalam</option>
+        <option value="montserrat">Montserrat</option>
+        <option value="comic">Comic Neue</option>
+      </select>
+
+      <!-- Small / Medium / Big Text Sizes -->
+      <div class="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5" title="Text Size">
+        <button type="button" data-size-preset="small" class="obj-size-btn px-2 py-1 text-[11px] font-semibold rounded-md hover:bg-white transition">S</button>
+        <button type="button" data-size-preset="medium" class="obj-size-btn px-2 py-1 text-xs font-semibold rounded-md hover:bg-white transition">M</button>
+        <button type="button" data-size-preset="big" class="obj-size-btn px-2 py-1 text-sm font-semibold rounded-md hover:bg-white transition">Big</button>
+      </div>
+
+      <!-- Bold / Italic / Underline -->
+      <div class="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+        <button id="objBoldBtn" type="button" class="p-1 rounded-md hover:bg-white transition" title="Bold (Ctrl+B)"><i data-lucide="bold" class="w-3.5 h-3.5"></i></button>
+        <button id="objItalicBtn" type="button" class="p-1 rounded-md hover:bg-white transition" title="Italic (Ctrl+I)"><i data-lucide="italic" class="w-3.5 h-3.5"></i></button>
+        <button id="objUnderlineBtn" type="button" class="p-1 rounded-md hover:bg-white transition" title="Underline (Ctrl+U)"><i data-lucide="underline" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <!-- List Formatting: Bullet, Numbered, ABC -->
+      <div class="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5" title="List Formatting">
+        <button type="button" data-list-mode="bullet" class="obj-list-btn px-1.5 py-1 text-xs font-semibold rounded-md hover:bg-white transition" title="Bullet List">•</button>
+        <button type="button" data-list-mode="number" class="obj-list-btn px-1.5 py-1 text-[11px] font-semibold rounded-md hover:bg-white transition" title="Numbered List (1, 2, 3)">1.</button>
+        <button type="button" data-list-mode="abc" class="obj-list-btn px-1.5 py-1 text-[11px] font-semibold rounded-md hover:bg-white transition" title="ABC List (A, B, C)">ABC</button>
+      </div>
+
+      <!-- Left / Middle / Right Alignment -->
+      <div class="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+        <button type="button" data-align="left" class="obj-align-btn p-1 rounded-md hover:bg-white transition" title="Align Left"><i data-lucide="align-left" class="w-3.5 h-3.5"></i></button>
+        <button type="button" data-align="center" class="obj-align-btn p-1 rounded-md hover:bg-white transition" title="Align Middle"><i data-lucide="align-center" class="w-3.5 h-3.5"></i></button>
+        <button type="button" data-align="right" class="obj-align-btn p-1 rounded-md hover:bg-white transition" title="Align Right"><i data-lucide="align-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <!-- Text Color Swatches -->
+      <div class="flex items-center gap-1 pl-0.5">
+        <button type="button" data-text-color="#1f2937" class="obj-text-color-swatch w-5 h-5 rounded-full bg-[#1f2937] border border-gray-300 hover:scale-110 transition" title="Dark Gray"></button>
+        <button type="button" data-text-color="#1a73e8" class="obj-text-color-swatch w-5 h-5 rounded-full bg-[#1a73e8] hover:scale-110 transition" title="Blue"></button>
+        <button type="button" data-text-color="#188038" class="obj-text-color-swatch w-5 h-5 rounded-full bg-[#188038] hover:scale-110 transition" title="Green"></button>
+        <button type="button" data-text-color="#d93025" class="obj-text-color-swatch w-5 h-5 rounded-full bg-[#d93025] hover:scale-110 transition" title="Red"></button>
+        <input type="color" id="objTextColorInput" value="#1f2937" class="w-5 h-5 rounded-full cursor-pointer border-0 bg-transparent" title="Custom Text Color" />
+      </div>
+    </div>
+
+    <button id="replyStickyContextBtn" type="button" class="hidden px-2.5 py-1 rounded-full hover:bg-amber-50 text-xs font-medium text-amber-700 flex items-center gap-1 shrink-0">
+      <i data-lucide="message-square-reply" class="w-3.5 h-3.5"></i> Reply
+    </button>
+    <button id="editObjBtn" type="button" class="hidden px-2.5 py-1 rounded-full hover:bg-gray-100 text-xs font-medium text-gray-700 flex items-center gap-1 shrink-0">
+      <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit
+    </button>
+    <button id="duplicateObjBtn" type="button" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-700 shrink-0" title="Duplicate">
+      <i data-lucide="copy" class="w-4 h-4"></i>
+    </button>
+    <button id="bringFrontBtn" type="button" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-700 shrink-0" title="Bring to Front">
+      <i data-lucide="bring-to-front" class="w-4 h-4"></i>
+    </button>
+    <button id="sendBackBtn" type="button" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-700 shrink-0" title="Send to Back">
+      <i data-lucide="send-to-back" class="w-4 h-4"></i>
+    </button>
+    <div class="w-px h-4 bg-gray-200 mx-0.5 shrink-0"></div>
+    <button id="deleteObjBtn" type="button" class="p-1.5 rounded-full hover:bg-red-50 text-red-600 shrink-0" title="Delete (Del)">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+    </button>
+  </div>
+
+  <!-- ==================== MAIN WORKSPACE ==================== -->
+  <main id="workspaceViewport" class="fixed inset-0 pt-14 overflow-hidden flex items-center justify-center bg-[#f1f3f4]">
+    <div id="boardContainer" class="relative shadow-2xl rounded-lg overflow-hidden bg-white transition-colors duration-200" style="width: 1280px; height: 720px; transform-origin: center center;">
+      <div id="boardBackgroundLayer" class="absolute inset-0 pointer-events-none"></div>
+      <canvas id="drawingCanvas" width="1280" height="720" class="absolute inset-0 w-full h-full"></canvas>
+      <div id="objectsLayer" class="absolute inset-0 overflow-hidden"></div>
+      <canvas id="overlayCanvas" width="1280" height="720" class="absolute inset-0 w-full h-full pointer-events-none z-20"></canvas>
+    </div>
+  </main>
+
+  <!-- ==================== STICKY NOTE MODAL ==================== -->
+  <div id="stickyModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-lg p-6 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="stickyModalTitle" class="text-base font-semibold text-gray-800">Sticky Note</h3>
+        <button id="closeStickyModalBtn" type="button" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-500">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 10 Curated Sticky Note Colors + Transparent -->
+      <div class="mb-3">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Note Color</div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" data-sticky-color="#fff475" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#fff475] border-2 border-gray-800 scale-110 transition-transform" title="Classic Yellow"></button>
+          <button type="button" data-sticky-color="#ccff90" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#ccff90] border border-gray-300 transition-transform" title="Mint Green"></button>
+          <button type="button" data-sticky-color="#cbf0f8" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#cbf0f8] border border-gray-300 transition-transform" title="Sky Blue"></button>
+          <button type="button" data-sticky-color="#fdcfe8" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#fdcfe8] border border-gray-300 transition-transform" title="Soft Pink"></button>
+          <button type="button" data-sticky-color="#fbbc04" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#fbbc04] border border-gray-300 transition-transform" title="Warm Orange"></button>
+          <button type="button" data-sticky-color="#d7aefb" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#d7aefb] border border-gray-300 transition-transform" title="Lavender"></button>
+          <button type="button" data-sticky-color="#f28b82" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#f28b82] border border-gray-300 transition-transform" title="Coral Red"></button>
+          <button type="button" data-sticky-color="#a7ffeb" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#a7ffeb] border border-gray-300 transition-transform" title="Aqua Teal"></button>
+          <button type="button" data-sticky-color="#ffe0b2" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#ffe0b2] border border-gray-300 transition-transform" title="Soft Peach"></button>
+          <button type="button" data-sticky-color="#e8eaed" class="sticky-color-swatch w-7 h-7 rounded-full bg-[#e8eaed] border border-gray-300 transition-transform" title="Cool Silver"></button>
+          <button type="button" data-sticky-color="transparent" class="sticky-color-swatch w-7 h-7 rounded-full bg-white border border-gray-300 flex items-center justify-center text-xs text-gray-500 font-bold transition-transform" title="Transparent">/</button>
+        </div>
+      </div>
+
+      <!-- Font, Size, Style, Lists & Alignment Strip -->
+      <div class="flex flex-wrap items-center gap-1.5 bg-gray-50 border border-gray-200/80 rounded-2xl p-2 mb-3">
+        <select id="stickyFontSelect" class="text-xs font-medium bg-white border border-gray-200 rounded-lg px-2 py-1 focus:outline-none">
+          <option value="sans">Inter</option>
+          <option value="serif">Playfair Display</option>
+          <option value="mono">JetBrains Mono</option>
+          <option value="handwriting">Kalam</option>
+          <option value="montserrat">Montserrat</option>
+          <option value="comic">Comic Neue</option>
+        </select>
+
+        <div class="flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg p-0.5">
+          <button type="button" data-sticky-size="small" class="sticky-size-btn px-2 py-0.5 text-[11px] font-semibold rounded-md">S</button>
+          <button type="button" data-sticky-size="medium" class="sticky-size-btn active px-2 py-0.5 text-xs font-semibold rounded-md bg-blue-50 text-blue-600">M</button>
+          <button type="button" data-sticky-size="big" class="sticky-size-btn px-2 py-0.5 text-xs font-semibold rounded-md">Big</button>
+        </div>
+
+        <div class="flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg p-0.5">
+          <button id="stickyBoldBtn" type="button" class="p-1 rounded-md hover:bg-gray-100" title="Bold"><i data-lucide="bold" class="w-3.5 h-3.5"></i></button>
+          <button id="stickyItalicBtn" type="button" class="p-1 rounded-md hover:bg-gray-100" title="Italic"><i data-lucide="italic" class="w-3.5 h-3.5"></i></button>
+          <button id="stickyUnderlineBtn" type="button" class="p-1 rounded-md hover:bg-gray-100" title="Underline"><i data-lucide="underline" class="w-3.5 h-3.5"></i></button>
+        </div>
+
+        <div class="flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg p-0.5">
+          <button type="button" data-sticky-list="bullet" class="sticky-list-btn px-1.5 py-0.5 text-xs font-semibold rounded-md hover:bg-gray-100" title="Bullet List">•</button>
+          <button type="button" data-sticky-list="number" class="sticky-list-btn px-1.5 py-0.5 text-[11px] font-semibold rounded-md hover:bg-gray-100" title="Numbered List">1.</button>
+          <button type="button" data-sticky-list="abc" class="sticky-list-btn px-1.5 py-0.5 text-[11px] font-semibold rounded-md hover:bg-gray-100" title="ABC List">ABC</button>
+        </div>
+
+        <!-- Default Left Alignment + Middle & Right -->
+        <div class="flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg p-0.5">
+          <button type="button" data-sticky-align="left" class="sticky-align-btn active p-1 rounded-md bg-blue-50 text-blue-600" title="Align Left"><i data-lucide="align-left" class="w-3.5 h-3.5"></i></button>
+          <button type="button" data-sticky-align="center" class="sticky-align-btn p-1 rounded-md hover:bg-gray-100" title="Align Middle"><i data-lucide="align-center" class="w-3.5 h-3.5"></i></button>
+          <button type="button" data-sticky-align="right" class="sticky-align-btn p-1 rounded-md hover:bg-gray-100" title="Align Right"><i data-lucide="align-right" class="w-3.5 h-3.5"></i></button>
+        </div>
+      </div>
+
+      <!-- Sticky Note Preview Box -->
+      <div id="stickyPreviewCard" class="w-full h-48 rounded-2xl p-4 shadow-md transition-colors duration-150 flex border border-black/10" style="background-color: #fff475;">
+        <textarea
+          id="stickyTextarea"
+          placeholder="Type your note here..."
+          maxlength="500"
+          class="w-full h-full bg-transparent resize-none border-none focus:outline-none text-gray-900 placeholder-gray-600/60 leading-snug"
+          style="font-family: 'Inter', sans-serif; font-size: 22px; text-align: left;"
+        ></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 mt-4">
+        <button id="cancelStickyBtn" type="button" class="px-4 py-2 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Cancel</button>
+        <button id="saveStickyBtn" type="button" class="px-5 py-2 rounded-full text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== STICKY NOTE REPLIES MODAL ==================== -->
+  <div id="replyModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-md p-6">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="message-square-reply" class="w-4 h-4 text-amber-600"></i>
+          <h3 class="text-base font-semibold text-gray-800">Sticky Note Replies</h3>
+        </div>
+        <button id="closeReplyModalBtn" type="button" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-500">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div id="replyParentNotePreview" class="rounded-2xl p-3.5 mb-4 text-sm font-medium text-gray-900 border border-black/10 break-words whitespace-pre-wrap max-h-28 overflow-y-auto bg-[#fff475]"></div>
+
+      <div id="repliesListContainer" class="space-y-2 max-h-52 overflow-y-auto mb-4 pr-1"></div>
+
+      <form id="replyForm" class="flex items-center gap-2">
+        <input
+          id="replyInput"
+          type="text"
+          placeholder="Write a reply..."
+          maxlength="240"
+          class="flex-1 text-sm bg-gray-100 focus:bg-white border border-gray-200 focus:border-blue-500 rounded-full px-4 py-2 focus:outline-none"
+        />
+        <button type="submit" class="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shrink-0">Reply</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== CLEAR SLIDE CONFIRMATION MODAL ==================== -->
+  <div id="clearConfirmModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6">
+      <h3 class="text-base font-semibold text-gray-900 mb-2">Clear this slide?</h3>
+      <p class="text-sm text-gray-600 mb-5">This will remove all drawings, sticky notes, shapes, text boxes, and images on the current slide. You can still undo this action.</p>
+      <div class="flex justify-end gap-2">
+        <button id="cancelClearBtn" type="button" class="px-4 py-2 rounded-full text-sm font-medium text-gray-600 hover:bg-gray-100">Cancel</button>
+        <button id="confirmClearBtn" type="button" class="px-4 py-2 rounded-full text-sm font-medium bg-red-600 hover:bg-red-700 text-white">Clear slide</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST NOTIFICATION ==================== -->
+  <div id="toastNotification" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg z-50 transition-opacity">
+    Saved
+  </div>
+
+  <!-- ==================== APPLICATION JAVASCRIPT ==================== -->
+  <script>
+    (function () {
+      "use strict";
+
+      lucide.createIcons();
+
+      const BOARD_WIDTH = 1280;
+      const BOARD_HEIGHT = 720;
+
+      const FONT_FAMILIES = {
+        sans: { css: "'Inter', sans-serif", canvas: "Inter, sans-serif" },
+        serif: { css: "'Playfair Display', Georgia, serif", canvas: "'Playfair Display', Georgia, serif" },
+        mono: { css: "'JetBrains Mono', monospace", canvas: "'JetBrains Mono', monospace" },
+        handwriting: { css: "'Kalam', cursive", canvas: "Kalam, cursive" },
+        montserrat: { css: "'Montserrat', sans-serif", canvas: "Montserrat, sans-serif" },
+        comic: { css: "'Comic Neue', cursive", canvas: "'Comic Neue', cursive" }
+      };
+
+      const SIZE_PRESETS = {
+        small: { sticky: 16, text: 18 },
+        medium: { sticky: 22, text: 26 },
+        big: { sticky: 32, text: 40 }
+      };
+
+      const state = {
+        slides: [],
+        currentSlideIndex: 0,
+        activeTool: "pen",
+        pen: {
+          type: "pen",
+          color: "#1f2937",
+          size: 3
+        },
+        shape: {
+          type: "circle",
+          stroke: "#1f2937",
+          fill: "transparent"
+        },
+        sticky: {
+          color: "#fff475",
+          fontFamily: "sans",
+          sizePreset: "medium",
+          fontSize: 22,
+          fontWeight: "normal",
+          fontStyle: "normal",
+          textDecoration: "none",
+          listMode: "none",
+          textAlign: "left",
+          editingId: null
+        },
+        replyingStickyId: null,
+        viewport: {
+          scale: 1,
+          panX: 0,
+          panY: 0,
+          isPanning: false,
+          spacePressed: false,
+          lastPanClientX: 0,
+          lastPanClientY: 0
+        },
+        selectedObjectId: null,
+        editingTextObjectId: null,
+        isDrawing: false,
+        currentStroke: null,
+        shapePreview: null,
+        laserTrail: []
+      };
+
+      // DOM elements
+      const workspaceViewport = document.getElementById("workspaceViewport");
+      const boardContainer = document.getElementById("boardContainer");
+      const boardBackgroundLayer = document.getElementById("boardBackgroundLayer");
+      const drawingCanvas = document.getElementById("drawingCanvas");
+      const drawingCtx = drawingCanvas.getContext("2d");
+      const overlayCanvas = document.getElementById("overlayCanvas");
+      const overlayCtx = overlayCanvas.getContext("2d");
+      const objectsLayer = document.getElementById("objectsLayer");
+
+      const prevSlideBtn = document.getElementById("prevSlideBtn");
+      const nextSlideBtn = document.getElementById("nextSlideBtn");
+      const addSlideBtn = document.getElementById("addSlideBtn");
+      const overviewAddSlideBtn = document.getElementById("overviewAddSlideBtn");
+      const slideOverviewBtn = document.getElementById("slideOverviewBtn");
+      const slideIndicator = document.getElementById("slideIndicator");
+      const slideOverviewBar = document.getElementById("slideOverviewBar");
+      const slideThumbnailsList = document.getElementById("slideThumbnailsList");
+      const closeOverviewBtn = document.getElementById("closeOverviewBtn");
+
+      const undoBtn = document.getElementById("undoBtn");
+      const redoBtn = document.getElementById("redoBtn");
+      const zoomMenuBtn = document.getElementById("zoomMenuBtn");
+      const zoomPopover = document.getElementById("zoomPopover");
+      const zoomLabel = document.getElementById("zoomLabel");
+      const bgMenuBtn = document.getElementById("bgMenuBtn");
+      const bgPopover = document.getElementById("bgPopover");
+      const clearFrameBtn = document.getElementById("clearFrameBtn");
+      const exportPngBtn = document.getElementById("exportPngBtn");
+
+      const penPopover = document.getElementById("penPopover");
+      const shapePopover = document.getElementById("shapePopover");
+      const activePenColorDot = document.getElementById("activePenColorDot");
+      const imageFileInput = document.getElementById("imageFileInput");
+
+      // Sticky Modal DOM
+      const stickyModal = document.getElementById("stickyModal");
+      const stickyModalTitle = document.getElementById("stickyModalTitle");
+      const stickyPreviewCard = document.getElementById("stickyPreviewCard");
+      const stickyTextarea = document.getElementById("stickyTextarea");
+      const stickyFontSelect = document.getElementById("stickyFontSelect");
+      const stickyBoldBtn = document.getElementById("stickyBoldBtn");
+      const stickyItalicBtn = document.getElementById("stickyItalicBtn");
+      const stickyUnderlineBtn = document.getElementById("stickyUnderlineBtn");
+      const saveStickyBtn = document.getElementById("saveStickyBtn");
+      const cancelStickyBtn = document.getElementById("cancelStickyBtn");
+      const closeStickyModalBtn = document.getElementById("closeStickyModalBtn");
+
+      // Reply Modal DOM
+      const replyModal = document.getElementById("replyModal");
+      const closeReplyModalBtn = document.getElementById("closeReplyModalBtn");
+      const replyParentNotePreview = document.getElementById("replyParentNotePreview");
+      const repliesListContainer = document.getElementById("repliesListContainer");
+      const replyForm = document.getElementById("replyForm");
+      const replyInput = document.getElementById("replyInput");
+
+      // Context Bar DOM
+      const objectContextBar = document.getElementById("objectContextBar");
+      const textFormatControls = document.getElementById("textFormatControls");
+      const objFontFamilySelect = document.getElementById("objFontFamilySelect");
+      const objBoldBtn = document.getElementById("objBoldBtn");
+      const objItalicBtn = document.getElementById("objItalicBtn");
+      const objUnderlineBtn = document.getElementById("objUnderlineBtn");
+      const objTextColorInput = document.getElementById("objTextColorInput");
+      const replyStickyContextBtn = document.getElementById("replyStickyContextBtn");
+      const editObjBtn = document.getElementById("editObjBtn");
+      const duplicateObjBtn = document.getElementById("duplicateObjBtn");
+      const bringFrontBtn = document.getElementById("bringFrontBtn");
+      const sendBackBtn = document.getElementById("sendBackBtn");
+      const deleteObjBtn = document.getElementById("deleteObjBtn");
+
+      // Helpers
+      function generateId() {
+        return "id_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toastNotification");
+        toast.textContent = message;
+        toast.classList.remove("hidden");
+        toast.style.opacity = "1";
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(() => {
+          toast.style.opacity = "0";
+          setTimeout(() => toast.classList.add("hidden"), 250);
+        }, 2000);
+      }
+
+      function getFontCSS(fontKey) {
+        return (FONT_FAMILIES[fontKey] || FONT_FAMILIES.sans).css;
+      }
+
+      function getCanvasFont(obj, fallbackSize) {
+        const weight = obj.fontWeight === "bold" ? "700" : "500";
+        const italic = obj.fontStyle === "italic" ? "italic " : "";
+        const size = Math.max(10, Math.round(obj.fontSize || fallbackSize));
+        const family = (FONT_FAMILIES[obj.fontFamily] || FONT_FAMILIES.sans).canvas;
+        return `${italic}${weight} ${size}px ${family}`;
+      }
+
+      function getAlphabetLabel(index) {
+        let num = index;
+        let label = "";
+        while (num >= 0) {
+          label = String.fromCharCode(65 + (num % 26)) + label;
+          num = Math.floor(num / 26) - 1;
+        }
+        return label;
+      }
+
+      function formatTextAsList(text, mode) {
+        const lines = (text || "").split("\n");
+        let listIndex = 0;
+        return lines
+          .map((line) => {
+            const cleaned = line
+              .replace(/^\s*•\s+/, "")
+              .replace(/^\s*\d+\.\s+/, "")
+              .replace(/^\s*[A-Z]+\.\s+/, "");
+            if (mode === "none") return cleaned;
+            const prefix =
+              mode === "bullet"
+                ? "• "
+                : mode === "number"
+                  ? `${listIndex + 1}. `
+                  : `${getAlphabetLabel(listIndex)}. `;
+            listIndex++;
+            return prefix + cleaned;
+          })
+          .join("\n");
+      }
+
+      function handleListEnterContinuation(textarea, listMode) {
+        if (!listMode || listMode === "none") return false;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const val = textarea.value;
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        const currentLine = val.slice(lineStart, start);
+
+        const bulletMatch = currentLine.match(/^(\s*•\s+)$/);
+        const numMatch = currentLine.match(/^(\s*)(\d+)\.\s+$/);
+        const abcMatch = currentLine.match(/^(\s*)([A-Z]+)\.\s+$/);
+
+        if (bulletMatch || numMatch || abcMatch) {
+          textarea.value = val.slice(0, lineStart) + val.slice(end);
+          textarea.selectionStart = textarea.selectionEnd = lineStart;
+          return true;
+        }
+
+        let nextPrefix = "• ";
+        if (listMode === "number") {
+          const prevNumMatch = currentLine.match(/^\s*(\d+)\.\s+/);
+          const nextNum = prevNumMatch ? parseInt(prevNumMatch[1], 10) + 1 : 1;
+          nextPrefix = `${nextNum}. `;
+        } else if (listMode === "abc") {
+          const prevAbcMatch = currentLine.match(/^\s*([A-Z]+)\.\s+/);
+          if (prevAbcMatch) {
+            const letters = prevAbcMatch[1];
+            let idx = 0;
+            for (let i = 0; i < letters.length; i++) {
+              idx = idx * 26 + (letters.charCodeAt(i) - 64);
+            }
+            nextPrefix = `${getAlphabetLabel(idx)}. `;
+          } else {
+            nextPrefix = "A. ";
+          }
+        }
+
+        const insertion = "\n" + nextPrefix;
+        textarea.value = val.slice(0, start) + insertion + val.slice(end);
+        const newPos = start + insertion.length;
+        textarea.selectionStart = textarea.selectionEnd = newPos;
+        return true;
+      }
+
+      // Slide & History management
+      function createEmptySlide() {
+        return {
+          background: "plain",
+          strokes: [],
+          objects: [],
+          history: [],
+          redoStack: []
+        };
+      }
+
+      function getCurrentSlide() {
+        return state.slides[state.currentSlideIndex];
+      }
+
+      function pushHistory() {
+        const slide = getCurrentSlide();
+        if (!slide) return;
+        const snapshot = JSON.stringify({
+          strokes: slide.strokes,
+          objects: slide.objects
+        });
+        slide.history.push(snapshot);
+        if (slide.history.length > 35) slide.history.shift();
+        slide.redoStack = [];
+        updateHistoryButtons();
+      }
+
+      function updateHistoryButtons() {
+        const slide = getCurrentSlide();
+        if (!slide) return;
+        undoBtn.disabled = slide.history.length === 0;
+        redoBtn.disabled = slide.redoStack.length === 0;
+      }
+
+      function undo() {
+        const slide = getCurrentSlide();
+        if (!slide || slide.history.length === 0) return;
+        slide.redoStack.push(JSON.stringify({ strokes: slide.strokes, objects: slide.objects }));
+        const prev = JSON.parse(slide.history.pop());
+        slide.strokes = prev.strokes;
+        slide.objects = prev.objects;
+        state.selectedObjectId = null;
+        state.editingTextObjectId = null;
+        redrawAll();
+        updateHistoryButtons();
+        showToast("Undo");
+      }
+
+      function redo() {
+        const slide = getCurrentSlide();
+        if (!slide || slide.redoStack.length === 0) return;
+        slide.history.push(JSON.stringify({ strokes: slide.strokes, objects: slide.objects }));
+        const next = JSON.parse(slide.redoStack.pop());
+        slide.strokes = next.strokes;
+        slide.objects = next.objects;
+        state.selectedObjectId = null;
+        state.editingTextObjectId = null;
+        redrawAll();
+        updateHistoryButtons();
+        showToast("Redo");
+      }
+
+      // Viewport transform
+      function updateViewportTransform() {
+        const viewportW = workspaceViewport.clientWidth || window.innerWidth;
+        const viewportH = (workspaceViewport.clientHeight || window.innerHeight) - 56;
+        const scaleX = (viewportW - 88) / BOARD_WIDTH;
+        const scaleY = (viewportH - 56) / BOARD_HEIGHT;
+        const scale = Math.max(0.3, Math.min(Math.min(scaleX, scaleY, 1.15), 2.5));
+        state.viewport.scale = scale;
+        state.viewport.panX = 0;
+        state.viewport.panY = 0;
+        applyBoardTransform();
+      }
+
+      function applyBoardTransform() {
+        boardContainer.style.transform = `translate(${state.viewport.panX}px, ${state.viewport.panY}px) scale(${state.viewport.scale})`;
+        zoomLabel.textContent = `${Math.round(state.viewport.scale * 100)}%`;
+      }
+
+      // Background rendering
+      function applyBackgroundStyle(bgType) {
+        boardBackgroundLayer.className = "absolute inset-0 pointer-events-none";
+        boardBackgroundLayer.style.backgroundImage = "none";
+        boardBackgroundLayer.style.backgroundColor = "#ffffff";
+
+        if (bgType === "dots") {
+          boardBackgroundLayer.style.backgroundImage = "radial-gradient(#9ca3af 1.5px, transparent 1.5px)";
+          boardBackgroundLayer.style.backgroundSize = "24px 24px";
+        } else if (bgType === "ruled") {
+          boardBackgroundLayer.style.backgroundImage = "linear-gradient(#e5e7eb 1px, transparent 1px)";
+          boardBackgroundLayer.style.backgroundSize = "100% 32px";
+        } else if (bgType === "graph") {
+          boardBackgroundLayer.style.backgroundImage =
+            "linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)";
+          boardBackgroundLayer.style.backgroundSize = "24px 24px";
+        } else if (bgType === "isometric") {
+          boardBackgroundLayer.style.backgroundImage =
+            "repeating-linear-gradient(60deg, #cbd5e1 0, #cbd5e1 1px, transparent 1px, transparent 20px), repeating-linear-gradient(-60deg, #cbd5e1 0, #cbd5e1 1px, transparent 1px, transparent 20px)";
+          boardBackgroundLayer.style.backgroundSize = "40px 68px";
+        } else if (bgType === "tbz") {
+          const tbzSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="110" height="64" viewBox="0 0 110 64"><g transform="rotate(-12 55 32)"><text x="55" y="39" text-anchor="middle" font-family="'Kalam', 'Comic Neue', cursive" font-style="italic" font-weight="700" font-size="22" letter-spacing="1.5" fill="#9ca3af" opacity="0.45">TBZ</text></g></svg>`;
+          boardBackgroundLayer.style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(tbzSvg)}")`;
+          boardBackgroundLayer.style.backgroundSize = "110px 64px";
+        }
+
+        document.querySelectorAll(".bg-option").forEach((opt) => {
+          opt.classList.toggle("bg-active", opt.dataset.bg === bgType);
+        });
+      }
+
+      function redrawAll() {
+        const slide = getCurrentSlide();
+        if (!slide) return;
+        applyBackgroundStyle(slide.background);
+        drawingCtx.clearRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+        slide.strokes.forEach((stroke) => drawStroke(drawingCtx, stroke));
+        renderObjects();
+      }
+
+      function drawStroke(ctx, stroke) {
+        if (!stroke.points || stroke.points.length === 0) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.size;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        if (stroke.type === "highlighter") {
+          ctx.globalAlpha = 0.35;
+          ctx.lineWidth = stroke.size * 3.5;
+        } else if (stroke.type === "brush") {
+          ctx.globalAlpha = 0.8;
+        }
+
+        const pts = stroke.points;
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x, pts[i].y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Render objects
+      function renderObjects() {
+        objectsLayer.innerHTML = "";
+        const slide = getCurrentSlide();
+        if (!slide) return;
+
+        slide.objects.forEach((obj) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "absolute cursor-pointer group";
+          wrapper.dataset.id = obj.id;
+          wrapper.style.left = `${obj.x}px`;
+          wrapper.style.top = `${obj.y}px`;
+          wrapper.style.width = `${obj.width}px`;
+          wrapper.style.height = `${obj.height}px`;
+          wrapper.style.transform = `rotate(${obj.rotation || 0}deg)`;
+
+          const isSelected = state.selectedObjectId === obj.id && state.activeTool === "select";
+          wrapper.style.zIndex = isSelected ? "40" : "10";
+
+          if (isSelected) {
+            const selBox = document.createElement("div");
+            selBox.className = "selection-box absolute inset-0 rounded-lg";
+
+            ["top-left", "top-right", "bottom-left", "bottom-right"].forEach((pos) => {
+              const handle = document.createElement("div");
+              handle.className = `resize-handle handle-${pos}`;
+              handle.dataset.handle = pos;
+              selBox.appendChild(handle);
+            });
+
+            const rotLine = document.createElement("div");
+            rotLine.className = "rotate-line";
+            const rotHandle = document.createElement("div");
+            rotHandle.className = "rotate-handle";
+            rotHandle.dataset.handle = "rotate";
+            rotHandle.innerHTML = '<i data-lucide="rotate-cw" style="width:10px;height:10px;color:#1a73e8;"></i>';
+            selBox.appendChild(rotLine);
+            selBox.appendChild(rotHandle);
+            wrapper.appendChild(selBox);
+          }
+
+          if (obj.type === "sticky") {
+            const card = document.createElement("div");
+            card.className = "sticky-note-card w-full h-full p-3.5 flex flex-col justify-between break-words overflow-hidden rounded-xs relative";
+            card.style.backgroundColor = obj.color === "transparent" ? "transparent" : obj.color;
+            if (obj.color === "transparent") {
+              card.style.boxShadow = "none";
+              card.style.border = "1px dashed rgba(156,163,175,0.6)";
+            }
+
+            const bodyDiv = document.createElement("div");
+            bodyDiv.className = "w-full flex-1 overflow-hidden whitespace-pre-wrap break-words";
+            bodyDiv.style.fontFamily = getFontCSS(obj.fontFamily);
+            bodyDiv.style.fontSize = `${obj.fontSize || 22}px`;
+            bodyDiv.style.color = obj.textColor || "#1f2937";
+            bodyDiv.style.textAlign = obj.textAlign || "left";
+            bodyDiv.style.lineHeight = "1.28";
+            bodyDiv.style.fontWeight = obj.fontWeight === "bold" ? "700" : "500";
+            bodyDiv.style.fontStyle = obj.fontStyle === "italic" ? "italic" : "normal";
+            bodyDiv.style.textDecoration = obj.textDecoration === "underline" ? "underline" : "none";
+            bodyDiv.textContent = obj.text;
+            card.appendChild(bodyDiv);
+
+            // Replies count & latest snippet footer
+            const replies = Array.isArray(obj.replies) ? obj.replies : [];
+            const footerRow = document.createElement("div");
+            footerRow.className = "mt-1.5 pt-1 border-t border-black/10 flex items-center justify-between gap-1 text-[11px]";
+
+            const replySummaryBtn = document.createElement("button");
+            replySummaryBtn.type = "button";
+            replySummaryBtn.className = "flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/5 hover:bg-black/10 text-gray-800 font-medium truncate max-w-[78%] transition";
+            replySummaryBtn.title = "View or add replies";
+            if (replies.length > 0) {
+              const lastReply = replies[replies.length - 1];
+              replySummaryBtn.innerHTML = `<i data-lucide="message-square" class="w-3 h-3 shrink-0"></i><span class="truncate">${replies.length}: ${escapeHtml(lastReply.text)}</span>`;
+            } else {
+              replySummaryBtn.innerHTML = `<i data-lucide="message-square-plus" class="w-3 h-3 shrink-0"></i><span>Reply</span>`;
+            }
+            replySummaryBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+            replySummaryBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              openReplyModal(obj.id);
+            });
+
+            footerRow.appendChild(replySummaryBtn);
+            card.appendChild(footerRow);
+            wrapper.appendChild(card);
+
+            wrapper.addEventListener("dblclick", (e) => {
+              e.stopPropagation();
+              openStickyModal(obj);
+            });
+          } else if (obj.type === "shape") {
+            wrapper.innerHTML = getShapeSVG(obj.shapeType, obj.stroke, obj.fill);
+          } else if (obj.type === "text") {
+            if (state.editingTextObjectId === obj.id) {
+              mountInlineTextEditor(wrapper, obj);
+            } else {
+              const textBox = document.createElement("div");
+              textBox.className = "w-full h-full p-2 outline-none break-words whitespace-pre-wrap leading-normal select-none overflow-hidden";
+              textBox.style.fontFamily = getFontCSS(obj.fontFamily);
+              textBox.style.fontSize = `${obj.fontSize || 26}px`;
+              textBox.style.color = obj.textColor || "#1f2937";
+              textBox.style.textAlign = obj.textAlign || "left";
+              textBox.style.fontWeight = obj.fontWeight === "bold" ? "700" : "500";
+              textBox.style.fontStyle = obj.fontStyle === "italic" ? "italic" : "normal";
+              textBox.style.textDecoration = obj.textDecoration === "underline" ? "underline" : "none";
+              textBox.textContent = obj.text || "Double-click to type";
+              if (!obj.text) textBox.style.opacity = "0.5";
+              wrapper.appendChild(textBox);
+
+              wrapper.addEventListener("dblclick", (e) => {
+                e.stopPropagation();
+                startEditingTextObject(obj);
+              });
+            }
+          } else if (obj.type === "image") {
+            const img = document.createElement("img");
+            img.src = obj.src;
+            img.className = "w-full h-full object-contain pointer-events-none rounded-lg";
+            wrapper.appendChild(img);
+          }
+
+          wrapper.addEventListener("pointerdown", (e) => {
+            if (state.activeTool !== "select") return;
+            if (state.editingTextObjectId === obj.id) return;
+            e.stopPropagation();
+            selectObject(obj.id);
+
+            const handleEl = e.target.closest("[data-handle]");
+            if (handleEl) {
+              const handleType = handleEl.dataset.handle;
+              if (handleType === "rotate") {
+                initObjectRotate(e, obj);
+              } else {
+                initObjectResize(e, obj, handleType);
+              }
+            } else {
+              initObjectDrag(e, obj);
+            }
+          });
+
+          objectsLayer.appendChild(wrapper);
+        });
+
+        lucide.createIcons();
+        updateObjectContextBar();
+      }
+
+      function escapeHtml(str) {
+        return String(str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function mountInlineTextEditor(wrapper, obj) {
+        const editor = document.createElement("textarea");
+        editor.value = obj.text || "";
+        editor.placeholder = "Type here...";
+        editor.className =
+          "w-full h-full p-2 bg-white/90 backdrop-blur-2xs border-2 border-blue-500 rounded-lg resize-none focus:outline-none leading-normal shadow-md overflow-auto";
+        editor.style.fontSize = `${obj.fontSize || 26}px`;
+        editor.style.color = obj.textColor || "#1f2937";
+        editor.style.textAlign = obj.textAlign || "left";
+        editor.style.fontWeight = obj.fontWeight === "bold" ? "700" : "500";
+        editor.style.fontStyle = obj.fontStyle === "italic" ? "italic" : "normal";
+        editor.style.textDecoration = obj.textDecoration === "underline" ? "underline" : "none";
+        editor.style.fontFamily = getFontCSS(obj.fontFamily);
+
+        wrapper.appendChild(editor);
+
+        requestAnimationFrame(() => {
+          editor.focus();
+          editor.setSelectionRange(editor.value.length, editor.value.length);
+        });
+
+        editor.addEventListener("pointerdown", (e) => e.stopPropagation());
+
+        editor.addEventListener("input", () => {
+          obj.text = editor.value;
+        });
+
+        editor.addEventListener("keydown", (e) => {
+          e.stopPropagation();
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+            e.preventDefault();
+            obj.fontWeight = obj.fontWeight === "bold" ? "normal" : "bold";
+            editor.style.fontWeight = obj.fontWeight === "bold" ? "700" : "500";
+            updateObjectContextBar();
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+            e.preventDefault();
+            obj.fontStyle = obj.fontStyle === "italic" ? "normal" : "italic";
+            editor.style.fontStyle = obj.fontStyle === "italic" ? "italic" : "normal";
+            updateObjectContextBar();
+            return;
+          }
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "u") {
+            e.preventDefault();
+            obj.textDecoration = obj.textDecoration === "underline" ? "none" : "underline";
+            editor.style.textDecoration = obj.textDecoration;
+            updateObjectContextBar();
+            return;
+          }
+          if (e.key === "Enter" && !e.shiftKey && obj.listMode && obj.listMode !== "none") {
+            if (handleListEnterContinuation(editor, obj.listMode)) {
+              e.preventDefault();
+              obj.text = editor.value;
+              return;
+            }
+          }
+          if (e.key === "Escape" || ((e.ctrlKey || e.metaKey) && e.key === "Enter")) {
+            e.preventDefault();
+            editor.blur();
+          }
+        });
+
+        editor.addEventListener("blur", () => {
+          obj.text = editor.value;
+          state.editingTextObjectId = null;
+          pushHistory();
+          renderObjects();
+        });
+      }
+
+      function startEditingTextObject(obj) {
+        state.editingTextObjectId = obj.id;
+        state.selectedObjectId = obj.id;
+        renderObjects();
+      }
+
+      function getShapeSVG(type, stroke, fill) {
+        let inner = "";
+        const f = fill === "transparent" ? "none" : fill;
+        if (type === "circle") {
+          inner = `<circle cx="50" cy="50" r="44" stroke="${stroke}" stroke-width="4" fill="${f}" />`;
+        } else if (type === "square") {
+          inner = `<rect x="8" y="8" width="84" height="84" rx="4" stroke="${stroke}" stroke-width="4" fill="${f}" />`;
+        } else if (type === "rounded") {
+          inner = `<rect x="6" y="16" width="88" height="68" rx="20" stroke="${stroke}" stroke-width="4" fill="${f}" />`;
+        } else if (type === "triangle") {
+          inner = `<polygon points="50,8 92,90 8,90" stroke="${stroke}" stroke-width="4" fill="${f}" stroke-linejoin="round" />`;
+        } else if (type === "diamond") {
+          inner = `<polygon points="50,6 94,50 50,94 6,50" stroke="${stroke}" stroke-width="4" fill="${f}" stroke-linejoin="round" />`;
+        } else if (type === "arrow") {
+          inner = `<path d="M10,40 H60 V20 L90,50 L60,80 V60 H10 Z" stroke="${stroke}" stroke-width="4" fill="${f}" stroke-linejoin="round" />`;
+        }
+        return `<svg viewBox="0 0 100 100" class="w-full h-full pointer-events-none">${inner}</svg>`;
+      }
+
+      // Selection & contextual toolbar
+      function selectObject(id) {
+        state.selectedObjectId = id;
+        renderObjects();
+      }
+
+      function updateObjectContextBar() {
+        if (!state.selectedObjectId || state.activeTool !== "select") {
+          objectContextBar.classList.add("hidden");
+          return;
+        }
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) {
+          objectContextBar.classList.add("hidden");
+          return;
+        }
+
+        objectContextBar.classList.remove("hidden");
+
+        if (obj.type === "text" || obj.type === "sticky") {
+          textFormatControls.classList.remove("hidden");
+          objFontFamilySelect.value = obj.fontFamily || "sans";
+          objTextColorInput.value = obj.textColor || "#1f2937";
+
+          const isBold = obj.fontWeight === "bold";
+          objBoldBtn.classList.toggle("bg-white", isBold);
+          objBoldBtn.classList.toggle("text-blue-600", isBold);
+
+          const isItalic = obj.fontStyle === "italic";
+          objItalicBtn.classList.toggle("bg-white", isItalic);
+          objItalicBtn.classList.toggle("text-blue-600", isItalic);
+
+          const isUnderline = obj.textDecoration === "underline";
+          objUnderlineBtn.classList.toggle("bg-white", isUnderline);
+          objUnderlineBtn.classList.toggle("text-blue-600", isUnderline);
+
+          const activeAlign = obj.textAlign || "left";
+          document.querySelectorAll(".obj-align-btn").forEach((btn) => {
+            const match = btn.dataset.align === activeAlign;
+            btn.classList.toggle("bg-white", match);
+            btn.classList.toggle("text-blue-600", match);
+          });
+
+          const activeList = obj.listMode || "none";
+          document.querySelectorAll(".obj-list-btn").forEach((btn) => {
+            const match = btn.dataset.listMode === activeList;
+            btn.classList.toggle("bg-white", match);
+            btn.classList.toggle("text-blue-600", match);
+          });
+        } else {
+          textFormatControls.classList.add("hidden");
+        }
+
+        replyStickyContextBtn.classList.toggle("hidden", obj.type !== "sticky");
+        editObjBtn.classList.toggle("hidden", obj.type !== "text" && obj.type !== "sticky");
+      }
+
+      // Drag, resize & rotate
+      function initObjectDrag(e, obj) {
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origX = obj.x;
+        const origY = obj.y;
+
+        function onMove(ev) {
+          const dx = (ev.clientX - startX) / state.viewport.scale;
+          const dy = (ev.clientY - startY) / state.viewport.scale;
+          obj.x = Math.max(-40, Math.min(origX + dx, BOARD_WIDTH - 40));
+          obj.y = Math.max(-40, Math.min(origY + dy, BOARD_HEIGHT - 40));
+          renderObjects();
+        }
+
+        function onUp() {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          pushHistory();
+        }
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      }
+
+      function initObjectResize(e, obj, handle) {
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origX = obj.x;
+        const origY = obj.y;
+        const origW = obj.width;
+        const origH = obj.height;
+        const origFontSize = obj.fontSize || (obj.type === "sticky" ? 22 : 26);
+        const minW = obj.type === "sticky" ? 130 : 80;
+        const minH = obj.type === "sticky" ? 130 : 48;
+
+        function onMove(ev) {
+          const dx = (ev.clientX - startX) / state.viewport.scale;
+          const dy = (ev.clientY - startY) / state.viewport.scale;
+
+          let newW = origW;
+          let newH = origH;
+          let newX = origX;
+          let newY = origY;
+
+          if (handle.includes("right")) newW = Math.max(minW, origW + dx);
+          if (handle.includes("left")) {
+            const candidateW = Math.max(minW, origW - dx);
+            newX = origX + (origW - candidateW);
+            newW = candidateW;
+          }
+          if (handle.includes("bottom")) newH = Math.max(minH, origH + dy);
+          if (handle.includes("top")) {
+            const candidateH = Math.max(minH, origH - dy);
+            newY = origY + (origH - candidateH);
+            newH = candidateH;
+          }
+
+          obj.x = newX;
+          obj.y = newY;
+          obj.width = newW;
+          obj.height = newH;
+
+          // Dynamic font scaling inside sticky notes and text boxes
+          if (obj.type === "sticky" || obj.type === "text") {
+            const scaleRatio = Math.sqrt((newW * newH) / (origW * origH));
+            obj.fontSize = Math.max(12, Math.min(72, Math.round(origFontSize * scaleRatio)));
+          }
+
+          renderObjects();
+        }
+
+        function onUp() {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          pushHistory();
+        }
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      }
+
+      function initObjectRotate(e, obj) {
+        const rect = boardContainer.getBoundingClientRect();
+        const centerX = rect.left + (obj.x + obj.width / 2) * state.viewport.scale;
+        const centerY = rect.top + (obj.y + obj.height / 2) * state.viewport.scale;
+
+        function onMove(ev) {
+          const angleRad = Math.atan2(ev.clientY - centerY, ev.clientX - centerX);
+          obj.rotation = Math.round((angleRad * 180) / Math.PI + 90);
+          renderObjects();
+        }
+
+        function onUp() {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          pushHistory();
+        }
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      }
+
+      // Canvas pointer events
+      function getBoardCoordinates(e) {
+        const rect = boardContainer.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / state.viewport.scale;
+        const y = (e.clientY - rect.top) / state.viewport.scale;
+        return {
+          x: Math.max(0, Math.min(x, BOARD_WIDTH)),
+          y: Math.max(0, Math.min(y, BOARD_HEIGHT))
+        };
+      }
+
+      boardContainer.addEventListener("pointerdown", (e) => {
+        if (state.viewport.spacePressed || e.button === 1) {
+          state.viewport.isPanning = true;
+          state.viewport.lastPanClientX = e.clientX;
+          state.viewport.lastPanClientY = e.clientY;
+          return;
+        }
+
+        const pt = getBoardCoordinates(e);
+        const slide = getCurrentSlide();
+        if (!slide) return;
+
+        if (state.activeTool === "pen" || state.activeTool === "eraser") {
+          state.isDrawing = true;
+          state.currentStroke = {
+            type: state.activeTool === "eraser" ? "eraser" : state.pen.type,
+            color: state.activeTool === "eraser" ? "#ffffff" : state.pen.color,
+            size: state.activeTool === "eraser" ? 32 : state.pen.size,
+            points: [pt]
+          };
+        } else if (state.activeTool === "laser") {
+          state.isDrawing = true;
+          state.laserTrail.push({ x: pt.x, y: pt.y, time: Date.now() });
+        } else if (state.activeTool === "text") {
+          const w = 340;
+          const h = 130;
+          const newTextObj = {
+            id: generateId(),
+            type: "text",
+            text: "",
+            x: Math.max(16, Math.min(pt.x, BOARD_WIDTH - w - 16)),
+            y: Math.max(16, Math.min(pt.y - 16, BOARD_HEIGHT - h - 16)),
+            width: w,
+            height: h,
+            fontFamily: "sans",
+            fontWeight: "normal",
+            fontStyle: "normal",
+            textDecoration: "none",
+            listMode: "none",
+            fontSize: 26,
+            textColor: "#1f2937",
+            textAlign: "left",
+            rotation: 0
+          };
+          slide.objects.push(newTextObj);
+          state.selectedObjectId = newTextObj.id;
+          state.editingTextObjectId = newTextObj.id;
+          state.activeTool = "select";
+          updateToolUI();
+          renderObjects();
+        } else if (state.activeTool === "shape") {
+          state.shapePreview = {
+            startX: pt.x,
+            startY: pt.y,
+            currentX: pt.x,
+            currentY: pt.y
+          };
+          state.isDrawing = true;
+        } else if (state.activeTool === "select") {
+          if (e.target === drawingCanvas || e.target === boardContainer || e.target === boardBackgroundLayer) {
+            state.selectedObjectId = null;
+            state.editingTextObjectId = null;
+            renderObjects();
+          }
+        }
+      });
+
+      window.addEventListener("pointermove", (e) => {
+        if (state.viewport.isPanning) {
+          state.viewport.panX += e.clientX - state.viewport.lastPanClientX;
+          state.viewport.panY += e.clientY - state.viewport.lastPanClientY;
+          state.viewport.lastPanClientX = e.clientX;
+          state.viewport.lastPanClientY = e.clientY;
+          applyBoardTransform();
+          return;
+        }
+
+        if (!state.isDrawing) return;
+        const pt = getBoardCoordinates(e);
+
+        if ((state.activeTool === "pen" || state.activeTool === "eraser") && state.currentStroke) {
+          state.currentStroke.points.push(pt);
+          redrawAll();
+          drawStroke(drawingCtx, state.currentStroke);
+        } else if (state.activeTool === "laser") {
+          state.laserTrail.push({ x: pt.x, y: pt.y, time: Date.now() });
+        } else if (state.activeTool === "shape" && state.shapePreview) {
+          state.shapePreview.currentX = pt.x;
+          state.shapePreview.currentY = pt.y;
+          redrawAll();
+          drawShapePreview(state.shapePreview);
+        }
+      });
+
+      window.addEventListener("pointerup", () => {
+        if (state.viewport.isPanning) {
+          state.viewport.isPanning = false;
+        }
+        if (!state.isDrawing) return;
+        state.isDrawing = false;
+
+        const slide = getCurrentSlide();
+        if (!slide) return;
+
+        if ((state.activeTool === "pen" || state.activeTool === "eraser") && state.currentStroke) {
+          slide.strokes.push(state.currentStroke);
+          state.currentStroke = null;
+          pushHistory();
+          redrawAll();
+        } else if (state.activeTool === "shape" && state.shapePreview) {
+          const sp = state.shapePreview;
+          const newShape = {
+            id: generateId(),
+            type: "shape",
+            shapeType: state.shape.type,
+            stroke: state.shape.stroke,
+            fill: state.shape.fill,
+            x: Math.min(sp.startX, sp.currentX),
+            y: Math.min(sp.startY, sp.currentY),
+            width: Math.max(30, Math.abs(sp.currentX - sp.startX)),
+            height: Math.max(30, Math.abs(sp.currentY - sp.startY)),
+            rotation: 0
+          };
+          slide.objects.push(newShape);
+          state.shapePreview = null;
+          state.selectedObjectId = newShape.id;
+          state.activeTool = "select";
+          updateToolUI();
+          pushHistory();
+          renderObjects();
+        }
+      });
+
+      function drawShapePreview(sp) {
+        const x = Math.min(sp.startX, sp.currentX);
+        const y = Math.min(sp.startY, sp.currentY);
+        const w = Math.max(30, Math.abs(sp.currentX - sp.startX));
+        const h = Math.max(30, Math.abs(sp.currentY - sp.startY));
+
+        overlayCtx.clearRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+        overlayCtx.save();
+        overlayCtx.strokeStyle = state.shape.stroke;
+        overlayCtx.lineWidth = 3;
+        overlayCtx.setLineDash([6, 6]);
+        if (state.shape.fill !== "transparent") {
+          overlayCtx.fillStyle = state.shape.fill;
+          overlayCtx.fillRect(x, y, w, h);
+        }
+        overlayCtx.strokeRect(x, y, w, h);
+        overlayCtx.restore();
+      }
+
+      function animationLoop() {
+        overlayCtx.clearRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+        if (state.laserTrail.length > 0) {
+          const now = Date.now();
+          state.laserTrail = state.laserTrail.filter((pt) => now - pt.time < 800);
+
+          if (state.laserTrail.length > 1) {
+            overlayCtx.save();
+            for (let i = 1; i < state.laserTrail.length; i++) {
+              const p1 = state.laserTrail[i - 1];
+              const p2 = state.laserTrail[i];
+              const alpha = Math.max(0, 1 - (now - p2.time) / 800);
+              overlayCtx.beginPath();
+              overlayCtx.moveTo(p1.x, p1.y);
+              overlayCtx.lineTo(p2.x, p2.y);
+              overlayCtx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
+              overlayCtx.lineWidth = 4;
+              overlayCtx.lineCap = "round";
+              overlayCtx.stroke();
+            }
+            const last = state.laserTrail[state.laserTrail.length - 1];
+            overlayCtx.beginPath();
+            overlayCtx.arc(last.x, last.y, 7, 0, Math.PI * 2);
+            overlayCtx.fillStyle = "#ef4444";
+            overlayCtx.fill();
+            overlayCtx.lineWidth = 2;
+            overlayCtx.strokeStyle = "#ffffff";
+            overlayCtx.stroke();
+            overlayCtx.restore();
+          }
+        }
+        requestAnimationFrame(animationLoop);
+      }
+
+      // Tool & popover controls
+      document.querySelectorAll("#leftToolbar button[data-tool]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const tool = btn.dataset.tool;
+          if (tool === "pen") {
+            penPopover.classList.toggle("hidden");
+            shapePopover.classList.add("hidden");
+          } else if (tool === "shape") {
+            shapePopover.classList.toggle("hidden");
+            penPopover.classList.add("hidden");
+          } else {
+            penPopover.classList.add("hidden");
+            shapePopover.classList.add("hidden");
+          }
+
+          if (tool === "sticky") {
+            openStickyModal();
+            return;
+          }
+          if (tool === "image") {
+            imageFileInput.click();
+            return;
+          }
+
+          state.activeTool = tool;
+          updateToolUI();
+        });
+      });
+
+      function updateToolUI() {
+        document.querySelectorAll("#leftToolbar button[data-tool]").forEach((b) => {
+          b.classList.toggle("active", b.dataset.tool === state.activeTool);
+        });
+        if (state.activeTool !== "select") {
+          state.selectedObjectId = null;
+          state.editingTextObjectId = null;
+          renderObjects();
+        }
+      }
+
+      document.querySelectorAll(".pen-type-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".pen-type-btn").forEach((b) => {
+            b.classList.remove("active", "border-blue-500", "bg-blue-50", "text-blue-600");
+            b.classList.add("border-gray-200", "text-gray-700");
+          });
+          btn.classList.add("active", "border-blue-500", "bg-blue-50", "text-blue-600");
+          btn.classList.remove("border-gray-200", "text-gray-700");
+          state.pen.type = btn.dataset.penType;
+        });
+      });
+
+      document.querySelectorAll(".stroke-size-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".stroke-size-btn").forEach((b) => b.classList.remove("active", "bg-white", "shadow-2xs"));
+          btn.classList.add("active", "bg-white", "shadow-2xs");
+          state.pen.size = Number(btn.dataset.strokeSize);
+        });
+      });
+
+      document.querySelectorAll(".pen-color-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".pen-color-btn").forEach((b) => b.classList.remove("ring-2", "ring-offset-2", "ring-blue-500"));
+          btn.classList.add("ring-2", "ring-offset-2", "ring-blue-500");
+          state.pen.color = btn.dataset.penColor;
+          activePenColorDot.style.backgroundColor = state.pen.color;
+        });
+      });
+
+      document.getElementById("customPenColorInput").addEventListener("input", (e) => {
+        state.pen.color = e.target.value;
+        activePenColorDot.style.backgroundColor = state.pen.color;
+      });
+
+      document.querySelectorAll(".shape-type-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".shape-type-btn").forEach((b) => {
+            b.classList.remove("active", "border-blue-500", "bg-blue-50", "text-blue-600");
+            b.classList.add("border-gray-200", "text-gray-700");
+          });
+          btn.classList.add("active", "border-blue-500", "bg-blue-50", "text-blue-600");
+          btn.classList.remove("border-gray-200", "text-gray-700");
+          state.shape.type = btn.dataset.shapeType;
+        });
+      });
+
+      document.querySelectorAll(".shape-stroke-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".shape-stroke-btn").forEach((b) => b.classList.remove("ring-2", "ring-offset-1", "ring-blue-500"));
+          btn.classList.add("ring-2", "ring-offset-1", "ring-blue-500");
+          state.shape.stroke = btn.dataset.shapeStroke;
+        });
+      });
+
+      document.querySelectorAll(".shape-fill-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".shape-fill-btn").forEach((b) => b.classList.remove("ring-2", "ring-offset-1", "ring-blue-500"));
+          btn.classList.add("ring-2", "ring-offset-1", "ring-blue-500");
+          state.shape.fill = btn.dataset.shapeFill;
+        });
+      });
+
+      // Sticky Note Modal
+      function openStickyModal(obj = null) {
+        if (obj) {
+          state.sticky.editingId = obj.id;
+          state.sticky.color = obj.color || "#fff475";
+          state.sticky.fontFamily = obj.fontFamily || "sans";
+          state.sticky.fontSize = obj.fontSize || 22;
+          state.sticky.fontWeight = obj.fontWeight || "normal";
+          state.sticky.fontStyle = obj.fontStyle || "normal";
+          state.sticky.textDecoration = obj.textDecoration || "none";
+          state.sticky.listMode = obj.listMode || "none";
+          state.sticky.textAlign = obj.textAlign || "left";
+          stickyTextarea.value = obj.text || "";
+          stickyModalTitle.textContent = "Edit Sticky Note";
+        } else {
+          state.sticky.editingId = null;
+          state.sticky.color = "#fff475";
+          state.sticky.fontFamily = "sans";
+          state.sticky.sizePreset = "medium";
+          state.sticky.fontSize = SIZE_PRESETS.medium.sticky;
+          state.sticky.fontWeight = "normal";
+          state.sticky.fontStyle = "normal";
+          state.sticky.textDecoration = "none";
+          state.sticky.listMode = "none";
+          state.sticky.textAlign = "left";
+          stickyTextarea.value = "";
+          stickyModalTitle.textContent = "Sticky Note";
+        }
+
+        stickyFontSelect.value = state.sticky.fontFamily;
+        syncStickyModalControls();
+        updateStickyPreview();
+        stickyModal.classList.remove("hidden");
+        setTimeout(() => stickyTextarea.focus(), 40);
+      }
+
+      function syncStickyModalControls() {
+        document.querySelectorAll(".sticky-color-swatch").forEach((b) => {
+          const active = b.dataset.stickyColor === state.sticky.color;
+          b.classList.toggle("border-2", active);
+          b.classList.toggle("border-gray-800", active);
+          b.classList.toggle("scale-110", active);
+          b.classList.toggle("border", !active);
+          b.classList.toggle("border-gray-300", !active);
+        });
+
+        document.querySelectorAll(".sticky-size-btn").forEach((b) => {
+          const active = b.dataset.stickySize === state.sticky.sizePreset;
+          b.classList.toggle("bg-blue-50", active);
+          b.classList.toggle("text-blue-600", active);
+        });
+
+        stickyBoldBtn.classList.toggle("bg-blue-50", state.sticky.fontWeight === "bold");
+        stickyBoldBtn.classList.toggle("text-blue-600", state.sticky.fontWeight === "bold");
+        stickyItalicBtn.classList.toggle("bg-blue-50", state.sticky.fontStyle === "italic");
+        stickyItalicBtn.classList.toggle("text-blue-600", state.sticky.fontStyle === "italic");
+        stickyUnderlineBtn.classList.toggle("bg-blue-50", state.sticky.textDecoration === "underline");
+        stickyUnderlineBtn.classList.toggle("text-blue-600", state.sticky.textDecoration === "underline");
+
+        document.querySelectorAll(".sticky-list-btn").forEach((b) => {
+          const active = b.dataset.stickyList === state.sticky.listMode;
+          b.classList.toggle("bg-blue-50", active);
+          b.classList.toggle("text-blue-600", active);
+        });
+
+        document.querySelectorAll(".sticky-align-btn").forEach((b) => {
+          const active = b.dataset.stickyAlign === state.sticky.textAlign;
+          b.classList.toggle("bg-blue-50", active);
+          b.classList.toggle("text-blue-600", active);
+        });
+      }
+
+      function updateStickyPreview() {
+        stickyPreviewCard.style.backgroundColor = state.sticky.color === "transparent" ? "#ffffff" : state.sticky.color;
+        stickyTextarea.style.fontFamily = getFontCSS(state.sticky.fontFamily);
+        stickyTextarea.style.fontSize = `${state.sticky.fontSize}px`;
+        stickyTextarea.style.fontWeight = state.sticky.fontWeight === "bold" ? "700" : "500";
+        stickyTextarea.style.fontStyle = state.sticky.fontStyle === "italic" ? "italic" : "normal";
+        stickyTextarea.style.textDecoration = state.sticky.textDecoration;
+        stickyTextarea.style.textAlign = state.sticky.textAlign || "left";
+      }
+
+      document.querySelectorAll(".sticky-color-swatch").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.sticky.color = btn.dataset.stickyColor;
+          syncStickyModalControls();
+          updateStickyPreview();
+        });
+      });
+
+      stickyFontSelect.addEventListener("change", (e) => {
+        state.sticky.fontFamily = e.target.value;
+        updateStickyPreview();
+      });
+
+      document.querySelectorAll(".sticky-size-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const preset = btn.dataset.stickySize;
+          state.sticky.sizePreset = preset;
+          state.sticky.fontSize = SIZE_PRESETS[preset].sticky;
+          syncStickyModalControls();
+          updateStickyPreview();
+        });
+      });
+
+      stickyBoldBtn.addEventListener("click", () => {
+        state.sticky.fontWeight = state.sticky.fontWeight === "bold" ? "normal" : "bold";
+        syncStickyModalControls();
+        updateStickyPreview();
+      });
+
+      stickyItalicBtn.addEventListener("click", () => {
+        state.sticky.fontStyle = state.sticky.fontStyle === "italic" ? "normal" : "italic";
+        syncStickyModalControls();
+        updateStickyPreview();
+      });
+
+      stickyUnderlineBtn.addEventListener("click", () => {
+        state.sticky.textDecoration = state.sticky.textDecoration === "underline" ? "none" : "underline";
+        syncStickyModalControls();
+        updateStickyPreview();
+      });
+
+      document.querySelectorAll(".sticky-list-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const mode = btn.dataset.stickyList;
+          state.sticky.listMode = state.sticky.listMode === mode ? "none" : mode;
+          stickyTextarea.value = formatTextAsList(stickyTextarea.value, state.sticky.listMode);
+          syncStickyModalControls();
+          stickyTextarea.focus();
+        });
+      });
+
+      document.querySelectorAll(".sticky-align-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.sticky.textAlign = btn.dataset.stickyAlign;
+          syncStickyModalControls();
+          updateStickyPreview();
+        });
+      });
+
+      stickyTextarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey && state.sticky.listMode !== "none") {
+          if (handleListEnterContinuation(stickyTextarea, state.sticky.listMode)) {
+            e.preventDefault();
+          }
+        }
+      });
+
+      saveStickyBtn.addEventListener("click", () => {
+        const text = stickyTextarea.value.trimEnd();
+        if (!text.trim()) {
+          showToast("Please type something for the sticky note.");
+          return;
+        }
+        const slide = getCurrentSlide();
+        if (!slide) return;
+
+        if (state.sticky.editingId) {
+          const obj = slide.objects.find((o) => o.id === state.sticky.editingId);
+          if (obj) {
+            obj.text = text;
+            obj.color = state.sticky.color;
+            obj.fontFamily = state.sticky.fontFamily;
+            obj.fontSize = state.sticky.fontSize;
+            obj.fontWeight = state.sticky.fontWeight;
+            obj.fontStyle = state.sticky.fontStyle;
+            obj.textDecoration = state.sticky.textDecoration;
+            obj.listMode = state.sticky.listMode;
+            obj.textAlign = state.sticky.textAlign;
+          }
+        } else {
+          const count = slide.objects.filter((o) => o.type === "sticky").length % 6;
+          const newSticky = {
+            id: generateId(),
+            type: "sticky",
+            text,
+            color: state.sticky.color,
+            fontFamily: state.sticky.fontFamily,
+            fontSize: state.sticky.fontSize,
+            fontWeight: state.sticky.fontWeight,
+            fontStyle: state.sticky.fontStyle,
+            textDecoration: state.sticky.textDecoration,
+            listMode: state.sticky.listMode,
+            textAlign: state.sticky.textAlign || "left",
+            x: 160 + count * 24,
+            y: 140 + count * 24,
+            width: 220,
+            height: 220,
+            textColor: "#1f2937",
+            rotation: Number((Math.random() * 4 - 2).toFixed(1)),
+            replies: []
+          };
+          slide.objects.push(newSticky);
+          state.selectedObjectId = newSticky.id;
+          state.activeTool = "select";
+          updateToolUI();
+        }
+
+        stickyModal.classList.add("hidden");
+        pushHistory();
+        renderObjects();
+        showToast("Sticky note saved");
+      });
+
+      cancelStickyBtn.addEventListener("click", () => stickyModal.classList.add("hidden"));
+      closeStickyModalBtn.addEventListener("click", () => stickyModal.classList.add("hidden"));
+
+      // Sticky Note Replies Modal
+      function openReplyModal(stickyId) {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === stickyId && o.type === "sticky");
+        if (!obj) return;
+        state.replyingStickyId = stickyId;
+        if (!Array.isArray(obj.replies)) obj.replies = [];
+
+        replyParentNotePreview.style.backgroundColor = obj.color === "transparent" ? "#fff475" : obj.color;
+        replyParentNotePreview.textContent = obj.text;
+        renderRepliesList(obj);
+        replyModal.classList.remove("hidden");
+        setTimeout(() => replyInput.focus(), 40);
+      }
+
+      function renderRepliesList(obj) {
+        repliesListContainer.innerHTML = "";
+        const replies = obj.replies || [];
+        if (replies.length === 0) {
+          repliesListContainer.innerHTML = '<div class="text-xs text-gray-400 text-center py-4">No replies yet. Add the first reply below.</div>';
+          return;
+        }
+        replies.forEach((rep) => {
+          const item = document.createElement("div");
+          item.className = "bg-gray-50 border border-gray-200/80 rounded-2xl px-3.5 py-2 flex items-start justify-between gap-2";
+          item.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <div class="text-xs text-gray-800 break-words whitespace-pre-wrap">${escapeHtml(rep.text)}</div>
+              <div class="text-[10px] text-gray-400 mt-0.5">${escapeHtml(rep.time || "")}</div>
+            </div>
+            <button type="button" class="delete-reply-btn p-1 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-600 transition shrink-0" title="Delete reply">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          `;
+          item.querySelector(".delete-reply-btn").addEventListener("click", () => {
+            obj.replies = obj.replies.filter((r) => r.id !== rep.id);
+            pushHistory();
+            renderRepliesList(obj);
+            renderObjects();
+          });
+          repliesListContainer.appendChild(item);
+        });
+        lucide.createIcons();
+      }
+
+      replyForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = replyInput.value.trim();
+        if (!text || !state.replyingStickyId) return;
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.replyingStickyId);
+        if (!obj) return;
+        if (!Array.isArray(obj.replies)) obj.replies = [];
+
+        const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        obj.replies.push({
+          id: generateId(),
+          text,
+          time: nowTime
+        });
+        replyInput.value = "";
+        pushHistory();
+        renderRepliesList(obj);
+        renderObjects();
+      });
+
+      closeReplyModalBtn.addEventListener("click", () => {
+        replyModal.classList.add("hidden");
+        state.replyingStickyId = null;
+      });
+
+      // Image upload
+      imageFileInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const img = new Image();
+          img.onload = function () {
+            let w = img.width;
+            let h = img.height;
+            const maxDim = 360;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const slide = getCurrentSlide();
+            if (!slide) return;
+            const newImgObj = {
+              id: generateId(),
+              type: "image",
+              src: event.target.result,
+              x: (BOARD_WIDTH - w) / 2,
+              y: (BOARD_HEIGHT - h) / 2,
+              width: w,
+              height: h,
+              rotation: 0
+            };
+            slide.objects.push(newImgObj);
+            state.selectedObjectId = newImgObj.id;
+            state.activeTool = "select";
+            updateToolUI();
+            pushHistory();
+            renderObjects();
+            showToast("Image added");
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        imageFileInput.value = "";
+      });
+
+      // Context toolbar formatting actions
+      objFontFamilySelect.addEventListener("change", (e) => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        obj.fontFamily = e.target.value;
+        if (!state.editingTextObjectId) pushHistory();
+        renderObjects();
+      });
+
+      document.querySelectorAll(".obj-size-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const slide = getCurrentSlide();
+          const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+          if (!obj) return;
+          const preset = btn.dataset.sizePreset;
+          obj.fontSize = obj.type === "sticky" ? SIZE_PRESETS[preset].sticky : SIZE_PRESETS[preset].text;
+          if (!state.editingTextObjectId) pushHistory();
+          renderObjects();
+        });
+      });
+
+      objBoldBtn.addEventListener("pointerdown", (e) => e.preventDefault());
+      objBoldBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        obj.fontWeight = obj.fontWeight === "bold" ? "normal" : "bold";
+        if (!state.editingTextObjectId) pushHistory();
+        renderObjects();
+      });
+
+      objItalicBtn.addEventListener("pointerdown", (e) => e.preventDefault());
+      objItalicBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        obj.fontStyle = obj.fontStyle === "italic" ? "normal" : "italic";
+        if (!state.editingTextObjectId) pushHistory();
+        renderObjects();
+      });
+
+      objUnderlineBtn.addEventListener("pointerdown", (e) => e.preventDefault());
+      objUnderlineBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        obj.textDecoration = obj.textDecoration === "underline" ? "none" : "underline";
+        if (!state.editingTextObjectId) pushHistory();
+        renderObjects();
+      });
+
+      document.querySelectorAll(".obj-list-btn").forEach((btn) => {
+        btn.addEventListener("pointerdown", (e) => e.preventDefault());
+        btn.addEventListener("click", () => {
+          const slide = getCurrentSlide();
+          const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+          if (!obj) return;
+          const mode = btn.dataset.listMode;
+          obj.listMode = obj.listMode === mode ? "none" : mode;
+          obj.text = formatTextAsList(obj.text, obj.listMode);
+          if (!state.editingTextObjectId) pushHistory();
+          renderObjects();
+        });
+      });
+
+      document.querySelectorAll(".obj-align-btn").forEach((btn) => {
+        btn.addEventListener("pointerdown", (e) => e.preventDefault());
+        btn.addEventListener("click", () => {
+          const slide = getCurrentSlide();
+          const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+          if (!obj) return;
+          obj.textAlign = btn.dataset.align;
+          if (!state.editingTextObjectId) pushHistory();
+          renderObjects();
+        });
+      });
+
+      document.querySelectorAll(".obj-text-color-swatch").forEach((swatch) => {
+        swatch.addEventListener("click", () => {
+          const slide = getCurrentSlide();
+          const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+          if (!obj) return;
+          obj.textColor = swatch.dataset.textColor;
+          objTextColorInput.value = obj.textColor;
+          if (!state.editingTextObjectId) pushHistory();
+          renderObjects();
+        });
+      });
+
+      objTextColorInput.addEventListener("input", (e) => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        obj.textColor = e.target.value;
+        if (!state.editingTextObjectId) pushHistory();
+        renderObjects();
+      });
+
+      replyStickyContextBtn.addEventListener("click", () => {
+        if (state.selectedObjectId) openReplyModal(state.selectedObjectId);
+      });
+
+      editObjBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        if (obj.type === "sticky") openStickyModal(obj);
+        else if (obj.type === "text") startEditingTextObject(obj);
+      });
+
+      duplicateObjBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        const obj = slide && slide.objects.find((o) => o.id === state.selectedObjectId);
+        if (!obj) return;
+        const copy = JSON.parse(JSON.stringify(obj));
+        copy.id = generateId();
+        copy.x = Math.min(BOARD_WIDTH - 80, copy.x + 24);
+        copy.y = Math.min(BOARD_HEIGHT - 80, copy.y + 24);
+        slide.objects.push(copy);
+        state.selectedObjectId = copy.id;
+        pushHistory();
+        renderObjects();
+        showToast("Duplicated");
+      });
+
+      bringFrontBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        if (!slide || !state.selectedObjectId) return;
+        const idx = slide.objects.findIndex((o) => o.id === state.selectedObjectId);
+        if (idx !== -1) {
+          const [obj] = slide.objects.splice(idx, 1);
+          slide.objects.push(obj);
+          pushHistory();
+          renderObjects();
+        }
+      });
+
+      sendBackBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        if (!slide || !state.selectedObjectId) return;
+        const idx = slide.objects.findIndex((o) => o.id === state.selectedObjectId);
+        if (idx > 0) {
+          const [obj] = slide.objects.splice(idx, 1);
+          slide.objects.unshift(obj);
+          pushHistory();
+          renderObjects();
+        }
+      });
+
+      deleteObjBtn.addEventListener("click", deleteSelectedObject);
+
+      function deleteSelectedObject() {
+        const slide = getCurrentSlide();
+        if (!slide || !state.selectedObjectId) return;
+        slide.objects = slide.objects.filter((o) => o.id !== state.selectedObjectId);
+        state.selectedObjectId = null;
+        renderObjects();
+        pushHistory();
+      }
+
+      // Multi-slide navigation & drawer
+      function addNewSlide() {
+        state.slides.splice(state.currentSlideIndex + 1, 0, createEmptySlide());
+        state.currentSlideIndex++;
+        updateSlideUI();
+        if (!slideOverviewBar.classList.contains("hidden")) {
+          renderSlideThumbnails();
+        }
+        showToast(`Added Slide ${state.currentSlideIndex + 1}`);
+      }
+
+      prevSlideBtn.addEventListener("click", () => {
+        if (state.currentSlideIndex > 0) {
+          state.currentSlideIndex--;
+          updateSlideUI();
+        }
+      });
+
+      nextSlideBtn.addEventListener("click", () => {
+        if (state.currentSlideIndex < state.slides.length - 1) {
+          state.currentSlideIndex++;
+          updateSlideUI();
+        }
+      });
+
+      addSlideBtn.addEventListener("click", addNewSlide);
+      overviewAddSlideBtn.addEventListener("click", addNewSlide);
+
+      function updateSlideUI() {
+        slideIndicator.textContent = `Slide ${state.currentSlideIndex + 1} / ${state.slides.length}`;
+        prevSlideBtn.disabled = state.currentSlideIndex === 0;
+        nextSlideBtn.disabled = state.currentSlideIndex === state.slides.length - 1;
+        state.selectedObjectId = null;
+        state.editingTextObjectId = null;
+        redrawAll();
+        updateHistoryButtons();
+      }
+
+      slideOverviewBtn.addEventListener("click", () => {
+        renderSlideThumbnails();
+        slideOverviewBar.classList.toggle("hidden");
+      });
+
+      closeOverviewBtn.addEventListener("click", () => {
+        slideOverviewBar.classList.add("hidden");
+      });
+
+      function renderSlideThumbnails() {
+        slideThumbnailsList.innerHTML = "";
+        state.slides.forEach((slide, idx) => {
+          const card = document.createElement("div");
+          const isActive = idx === state.currentSlideIndex;
+          card.className = `relative flex-shrink-0 w-44 h-24 rounded-2xl border-2 bg-white cursor-pointer overflow-hidden shadow-sm transition ${
+            isActive ? "border-amber-500 ring-2 ring-amber-400/30" : "border-gray-200 hover:border-gray-300"
+          }`;
+
+          const label = document.createElement("div");
+          label.className = "absolute inset-0 flex flex-col items-center justify-center text-xs font-semibold text-gray-500 pointer-events-none";
+          label.innerHTML = `<span>Slide ${idx + 1}</span><span class="text-[10px] font-normal text-gray-400 mt-0.5">${slide.objects.length} items</span>`;
+          card.appendChild(label);
+
+          if (state.slides.length > 1) {
+            const delBtn = document.createElement("button");
+            delBtn.type = "button";
+            delBtn.className = "absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/90 hover:bg-red-50 text-gray-500 hover:text-red-600 flex items-center justify-center shadow-2xs transition";
+            delBtn.title = "Delete slide";
+            delBtn.innerHTML = '<i data-lucide="trash-2" class="w-3 h-3"></i>';
+            delBtn.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              state.slides.splice(idx, 1);
+              if (state.currentSlideIndex >= state.slides.length) {
+                state.currentSlideIndex = state.slides.length - 1;
+              }
+              updateSlideUI();
+              renderSlideThumbnails();
+              showToast("Slide removed");
+            });
+            card.appendChild(delBtn);
+          }
+
+          card.addEventListener("click", () => {
+            state.currentSlideIndex = idx;
+            slideOverviewBar.classList.add("hidden");
+            updateSlideUI();
+          });
+
+          slideThumbnailsList.appendChild(card);
+        });
+        lucide.createIcons();
+      }
+
+      // Zoom & background popovers
+      zoomMenuBtn.addEventListener("click", () => {
+        zoomPopover.classList.toggle("hidden");
+        bgPopover.classList.add("hidden");
+      });
+
+      zoomPopover.querySelectorAll("button[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.dataset.zoom;
+          if (action === "in") {
+            state.viewport.scale = Math.min(2.5, Number((state.viewport.scale + 0.15).toFixed(2)));
+            applyBoardTransform();
+          } else if (action === "out") {
+            state.viewport.scale = Math.max(0.3, Number((state.viewport.scale - 0.15).toFixed(2)));
+            applyBoardTransform();
+          } else {
+            updateViewportTransform();
+          }
+          zoomPopover.classList.add("hidden");
+        });
+      });
+
+      bgMenuBtn.addEventListener("click", () => {
+        bgPopover.classList.toggle("hidden");
+        zoomPopover.classList.add("hidden");
+      });
+
+      bgPopover.querySelectorAll("button[data-bg]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const slide = getCurrentSlide();
+          if (!slide) return;
+          slide.background = btn.dataset.bg;
+          bgPopover.classList.add("hidden");
+          redrawAll();
+          pushHistory();
+          showToast(`Background: ${btn.textContent.trim()}`);
+        });
+      });
+
+      // Clear slide modal
+      clearFrameBtn.addEventListener("click", () => {
+        document.getElementById("clearConfirmModal").classList.remove("hidden");
+      });
+
+      document.getElementById("cancelClearBtn").addEventListener("click", () => {
+        document.getElementById("clearConfirmModal").classList.add("hidden");
+      });
+
+      document.getElementById("confirmClearBtn").addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        if (slide) {
+          slide.strokes = [];
+          slide.objects = [];
+          state.selectedObjectId = null;
+          state.editingTextObjectId = null;
+          pushHistory();
+          redrawAll();
+        }
+        document.getElementById("clearConfirmModal").classList.add("hidden");
+        showToast("Slide cleared");
+      });
+
+      // Export PNG
+      function drawExportBackgroundPattern(ctx, bgType) {
+        ctx.save();
+        if (bgType === "dots") {
+          ctx.fillStyle = "#9ca3af";
+          for (let x = 12; x < BOARD_WIDTH; x += 24) {
+            for (let y = 12; y < BOARD_HEIGHT; y += 24) {
+              ctx.beginPath();
+              ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        } else if (bgType === "ruled") {
+          ctx.strokeStyle = "#e5e7eb";
+          ctx.lineWidth = 1;
+          for (let y = 32; y < BOARD_HEIGHT; y += 32) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(BOARD_WIDTH, y);
+            ctx.stroke();
+          }
+        } else if (bgType === "graph") {
+          ctx.strokeStyle = "#e5e7eb";
+          ctx.lineWidth = 1;
+          for (let x = 0; x <= BOARD_WIDTH; x += 24) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, BOARD_HEIGHT);
+            ctx.stroke();
+          }
+          for (let y = 0; y <= BOARD_HEIGHT; y += 24) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(BOARD_WIDTH, y);
+            ctx.stroke();
+          }
+        } else if (bgType === "isometric") {
+          ctx.strokeStyle = "#cbd5e1";
+          ctx.lineWidth = 1;
+          const tan60 = Math.tan((60 * Math.PI) / 180);
+          const stepX = 23;
+          for (let x = -BOARD_HEIGHT / tan60; x <= BOARD_WIDTH + BOARD_HEIGHT / tan60; x += stepX) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + BOARD_HEIGHT / tan60, BOARD_HEIGHT);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x - BOARD_HEIGHT / tan60, BOARD_HEIGHT);
+            ctx.stroke();
+          }
+        } else if (bgType === "tbz") {
+          ctx.font = "italic 700 22px 'Kalam', 'Comic Neue', cursive";
+          ctx.fillStyle = "rgba(156, 163, 175, 0.45)";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          for (let x = 55; x <= BOARD_WIDTH + 55; x += 110) {
+            for (let y = 32; y <= BOARD_HEIGHT + 32; y += 64) {
+              ctx.save();
+              ctx.translate(x, y);
+              ctx.rotate((-12 * Math.PI) / 180);
+              ctx.fillText("TBZ", 0, 0);
+              ctx.restore();
+            }
+          }
+        }
+        ctx.restore();
+      }
+
+      function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, underline) {
+        if (!text) return;
+        const paragraphs = String(text).split("\n");
+        const lines = [];
+        paragraphs.forEach((paragraph) => {
+          const words = paragraph.split(" ");
+          let currentLine = words[0] || "";
+          for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const width = ctx.measureText(currentLine + " " + word).width;
+            if (width < maxWidth) {
+              currentLine += " " + word;
+            } else {
+              lines.push(currentLine);
+              currentLine = word;
+            }
+          }
+          lines.push(currentLine);
+        });
+
+        const totalHeight = lines.length * lineHeight;
+        let startY = y - totalHeight / 2 + lineHeight / 2;
+        if (ctx.textBaseline === "top") startY = y;
+
+        lines.forEach((line, index) => {
+          const ly = startY + index * lineHeight;
+          ctx.fillText(line, x, ly);
+          if (underline && line) {
+            const textW = ctx.measureText(line).width;
+            let ux = x;
+            if (ctx.textAlign === "center") ux = x - textW / 2;
+            else if (ctx.textAlign === "right") ux = x - textW;
+            ctx.save();
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = Math.max(1.5, lineHeight * 0.05);
+            ctx.beginPath();
+            ctx.moveTo(ux, ly + lineHeight * 0.35);
+            ctx.lineTo(ux + textW, ly + lineHeight * 0.35);
+            ctx.stroke();
+            ctx.restore();
+          }
+        });
+      }
+
+      exportPngBtn.addEventListener("click", () => {
+        const slide = getCurrentSlide();
+        if (!slide) return;
+
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = BOARD_WIDTH;
+        exportCanvas.height = BOARD_HEIGHT;
+        const eCtx = exportCanvas.getContext("2d");
+
+        eCtx.fillStyle = "#ffffff";
+        eCtx.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+        drawExportBackgroundPattern(eCtx, slide.background);
+
+        slide.strokes.forEach((s) => drawStroke(eCtx, s));
+
+        slide.objects.forEach((obj) => {
+          eCtx.save();
+          eCtx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+          eCtx.rotate(((obj.rotation || 0) * Math.PI) / 180);
+          eCtx.translate(-obj.width / 2, -obj.height / 2);
+
+          if (obj.type === "sticky") {
+            if (obj.color !== "transparent") {
+              eCtx.shadowColor = "rgba(0,0,0,0.16)";
+              eCtx.shadowBlur = 12;
+              eCtx.shadowOffsetY = 5;
+              eCtx.fillStyle = obj.color;
+              eCtx.fillRect(0, 0, obj.width, obj.height);
+              eCtx.shadowColor = "transparent";
+            }
+            const fontSize = obj.fontSize || 22;
+            const align = obj.textAlign || "left";
+            const anchorX = align === "center" ? obj.width / 2 : align === "right" ? obj.width - 14 : 14;
+            eCtx.fillStyle = obj.textColor || "#1f2937";
+            eCtx.font = getCanvasFont(obj, fontSize);
+            eCtx.textAlign = align;
+            eCtx.textBaseline = "middle";
+            wrapCanvasText(
+              eCtx,
+              obj.text,
+              anchorX,
+              obj.height / 2,
+              obj.width - 28,
+              fontSize * 1.25,
+              obj.textDecoration === "underline"
+            );
+
+            const replies = Array.isArray(obj.replies) ? obj.replies : [];
+            if (replies.length > 0) {
+              eCtx.font = "600 11px Inter, sans-serif";
+              eCtx.fillStyle = "rgba(31, 41, 55, 0.75)";
+              eCtx.textAlign = "left";
+              eCtx.textBaseline = "bottom";
+              eCtx.fillText(`Replies (${replies.length}): ${replies[replies.length - 1].text}`, 12, obj.height - 8);
+            }
+          } else if (obj.type === "text") {
+            const fontSize = obj.fontSize || 26;
+            const align = obj.textAlign || "left";
+            const anchorX = align === "center" ? obj.width / 2 : align === "right" ? obj.width - 8 : 8;
+            eCtx.fillStyle = obj.textColor || "#1f2937";
+            eCtx.font = getCanvasFont(obj, fontSize);
+            eCtx.textAlign = align;
+            eCtx.textBaseline = "top";
+            wrapCanvasText(
+              eCtx,
+              obj.text,
+              anchorX,
+              8,
+              obj.width - 16,
+              fontSize * 1.25,
+              obj.textDecoration === "underline"
+            );
+          }
+          eCtx.restore();
+        });
+
+        const titleInput = document.getElementById("jamTitleInput");
+        const baseName = (titleInput && titleInput.value.trim()) || "Name this ToddBoard";
+        const link = document.createElement("a");
+        link.download = `${baseName}-Slide-${state.currentSlideIndex + 1}.png`;
+        link.href = exportCanvas.toDataURL("image/png");
+        link.click();
+        showToast("Exported slide as PNG");
+      });
+
+      undoBtn.addEventListener("click", undo);
+      redoBtn.addEventListener("click", redo);
+
+      window.addEventListener("resize", updateViewportTransform);
+
+      window.addEventListener("keydown", (e) => {
+        const activeTag = document.activeElement && document.activeElement.tagName;
+        if (activeTag && ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag)) return;
+
+        if (e.key === " ") {
+          state.viewport.spacePressed = true;
+          boardContainer.style.cursor = "grab";
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) redo();
+          else undo();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+          return;
+        }
+        if ((e.key === "Delete" || e.key === "Backspace") && state.selectedObjectId) {
+          e.preventDefault();
+          deleteSelectedObject();
+          return;
+        }
+        const key = e.key.toLowerCase();
+        if (key === "p") { state.activeTool = "pen"; updateToolUI(); }
+        else if (key === "e") { state.activeTool = "eraser"; updateToolUI(); }
+        else if (key === "v") { state.activeTool = "select"; updateToolUI(); }
+        else if (key === "s") { openStickyModal(); }
+        else if (key === "t") { state.activeTool = "text"; updateToolUI(); }
+        else if (key === "l") { state.activeTool = "laser"; updateToolUI(); }
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (e.key === " ") {
+          state.viewport.spacePressed = false;
+          state.viewport.isPanning = false;
+          boardContainer.style.cursor = "default";
+        }
+      });
+
+      function initApp() {
+        state.slides.push(createEmptySlide());
+        updateSlideUI();
+        updateViewportTransform();
+        requestAnimationFrame(animationLoop);
+      }
+
+      if (document.readyState === "loading") {
+        window.addEventListener("DOMContentLoaded", initApp);
+      } else {
+        initApp();
+      }
+    })();
+  </script>
+</body>
+</html>
